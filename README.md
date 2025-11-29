@@ -26,6 +26,7 @@ A console-based warehouse/inventory management system written in C++:
 - On Unix-based OS: GCC / clang  
 
 ### Build & Run
+the existing wms.exe is the main program that would work the command line below is for linking all files after making a change and still would make the program update and show any new details, but for making it running u will just use the .exe program 
 
 ```bash
 g++ main.cpp WmsControllers.cpp Inventory.cpp Item.cpp Storage.cpp -o wms.exe
