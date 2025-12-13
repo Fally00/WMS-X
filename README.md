@@ -1,56 +1,58 @@
-📦 Warehouse Management System (WMS) — C++
+                         📦 Warehouse Management System (WMS) — C++
+
 
 A modular, console-based Warehouse Management System written in modern C++ (C++17).
 Built to be efficient, extensible, and readable, this project demonstrates solid architecture, clean separation of concerns, and practical systems programming concepts.
 
 Think real-world inventory logic, minus enterprise bloat.
 
-✨ Key Highlights
+--> ✨ Key Highlights
 
-🧠 Clean Architecture — Clear separation between logic, storage, UI, and control flow
+1- 🧠 Clean Architecture — Clear separation between logic, storage, UI, and control flow
 
-⚡ Efficient Core Logic — Optimized ID handling & reduced unnecessary object copies
+2- ⚡ Efficient Core Logic — Optimized ID handling & reduced unnecessary object copies
 
-🧾 Receipt System — Automatic transaction receipts (because accountability matters)
+3- 🧾 Receipt System — Automatic transaction receipts (because accountability matters)
 
-🔄 Batch / Queue Mode — Execute multiple operations sequentially
+4- 🔄 Batch / Queue Mode — Execute multiple operations sequentially
 
-💾 CSV Persistence — Lightweight, configurable data storage
+5- 💾 CSV Persistence — Lightweight, configurable data storage
 
-🎨 Console UI — ANSI colors + ASCII banners for extra drip
+6- 🎨 Console UI — ANSI colors + ASCII banners for extra drip
 
-🔧 Features
-📦 Inventory Management
+--> 🔧 Features
+
+1-📦 Inventory Management
 
 Add, remove, search, and list warehouse items
 
 Clean item abstraction via the Item module
 
-🧾 Receipt System (New)
+2- 🧾 Receipt System (New)
 
 Automatically generates detailed receipts for inventory transactions
 
 Clear logging of item changes per operation
 
-⚡ Performance Improvements (New)
+3-⚡ Performance Improvements (New)
 
 Smarter ID assignment
 
 Improved object passing (less copying, more sanity)
 
-🔄 Queue / Batch Processing
+4- 🔄 Queue / Batch Processing
 
 Enqueue multiple operations
 
 Execute them sequentially (ideal for bulk updates)
 
-💾 Auto-Save System
+5- 💾 Auto-Save System
 
 Toggleable CSV persistence
 
 Automatically saves after operations when enabled
 
-🏗️ Modular Design
+6- 🏗️ Modular Design
 
 Each responsibility lives where it should:
 
@@ -64,7 +66,7 @@ Receipt → Transaction logging
 
 WmsControllers → User input & coordination
 
-🛠️ Getting Started
+--> 🛠️ Getting Started
 📌 Prerequisites
 
 Compiler: Any C++ compiler with C++17 support (e.g. g++)
@@ -75,8 +77,8 @@ Windows (MinGW / MSYS2)
 
 Linux
 
-
-📂 Project Structure
+```
+--> 📂 Project Structure
 .
 ├── main.cpp              # Application entry point
 ├── WmsControllers.*      # User input & flow control
