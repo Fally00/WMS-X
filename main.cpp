@@ -70,7 +70,8 @@ int main() {
         cout << CYAN << "\n[9] Process Queue";
         cout << "\n------------------------------";
         cout <<RED<< "\n[10] Auto-Save  (" << (autosave ? "ON" : "OFF") << ")";
-        cout <<RED<< "\n[11] Save & Exit";
+        cout <<RED<< "\n[11] Receipt Generation";
+        cout <<RED<< "\n[12] Save & Exit";
         cout << "\n==============================";
         cout <<WHITE<< "\nSelect: ";
 
@@ -156,6 +157,50 @@ int main() {
         else if (choice == 9) {
             wms.processTasks();
             if (autosave) wms.saveAll();
+        }
+
+        /*==========================================
+                    RECEIPT GENERATION
+        ===========================================*/
+        else if (choice == 11) {
+            Receipt receipt;
+            while (true) {
+                cout << "Enter Item ID to add to receipt (or 'done' to finish): ";
+                string input;
+                getline(cin, input);
+                if (input == "done") break;
+
+                int itemId;
+                try {
+                    itemId = stoi(input);
+                } catch (...) {
+                    cout << "Invalid ID.\n";
+                    continue;
+                }
+
+                Item* item = wms.searchItemInInventory(itemId);
+                if (!item) {
+                    cout << "Item not found.\n";
+                    continue;
+                }
+
+                cout << "Enter quantity to add: ";
+                int quantity;
+                cin >> quantity; clearInput();
+
+                if (quantity > item->quantity) {
+                    cout << "Not enough stock available.\n";
+                    continue;
+                }
+
+                receipt.addItem(*item, quantity);
+                item->updateQuantity(-quantity);
+                cout << "Added to receipt.\n";
+            }
+
+            receipt.print();
+            receipt.saveToFile("receipt.csv");
+            cout << "Receipt saved to 'receipt.csv'.\n";
         }
 
 
