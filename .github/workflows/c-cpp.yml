@@ -1,18 +1,50 @@
-name: C/C++ CI
-
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
+
+    # 1. NEW STEP: Install Autotools
+    # This ensures the tools needed to generate 'configure' are available.
+    - name: Install Autotools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y autoconf automake libtool
+
+    # 2. NEW STEP: Generate the 'configure' script
+    # 'autoreconf -fi' generates 'configure' and ensures it has execute permissions.
+    - name: Autoreconf/Generate Configure Script
+      run: autoreconf -fi
+
+    # 3. ORIGINAL STEPS (which should now work)
+    - name: configure
+      run: ./configure
+    - name: make
+      run: make
+    - name: make check
+      run: make check
+    - name: make distcheck
+      run: make distcheckjobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    # 1. NEW STEP: Install Autotools
+    # This ensures the tools needed to generate 'configure' are available.
+    - name: Install Autotools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y autoconf automake libtool
+
+    # 2. NEW STEP: Generate the 'configure' script
+    # 'autoreconf -fi' generates 'configure' and ensures it has execute permissions.
+    - name: Autoreconf/Generate Configure Script
+      run: autoreconf -fi
+
+    # 3. ORIGINAL STEPS (which should now work)
     - name: configure
       run: ./configure
     - name: make
