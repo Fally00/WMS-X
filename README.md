@@ -88,6 +88,7 @@ Linux
 🪄 Build & Run
 ▶️ Quick Run (Windows)
 
+```bash
 If you just want to run it:
 
 wms.exe
@@ -114,15 +115,3 @@ Added receipt system
 Performance optimizations
 
 Improved internal logic
-
-🚀 Future Improvements (Planned / Ideas)
-
-File format abstraction (CSV → JSON / SQLite)
-
-Undo / rollback system
-
-Unit tests (yes, real ones)
-
-CMake support (to end manual compile suffering)
-
-Cross-platform release builds
