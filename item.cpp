@@ -27,7 +27,11 @@ void Item::fromCSV(const string &csvLine) {
     string token;
     // Expecting format: id,name,quantity,location
     if (!getline(ss, token, ',')) return;
-    id = token;
+    try {
+        id = stoi(token);
+    } catch (...) {
+        id = 0;
+    }
     if (!getline(ss, token, ',')) return;
     name = token;
     if (!getline(ss, token, ',')) return;

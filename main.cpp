@@ -102,15 +102,25 @@ int main() {
 
         else if (choice == 2) {
             cout << "Enter ID: "; getline(cin, id);
-            wms.removeItem(id);
-            if (autosave) wms.saveAll();
+            try {
+                int itemId = stoi(id);
+                wms.removeItem(itemId);
+                if (autosave) wms.saveAll();
+            } catch (...) {
+                cout << "Invalid ID.\n";
+            }
         }
 
         else if (choice == 3) {
             cout << "Enter ID: "; getline(cin, id);
-            auto *x = wms.searchItemInInventory(id);
-            if (x) cout << "\n[FOUND]\n", x->displayItem();
-            else   cout << "\n[NOT FOUND]\n";
+            try {
+                int itemId = stoi(id);
+                auto *x = wms.searchItemInInventory(itemId);
+                if (x) cout << "\n[FOUND]\n", x->displayItem();
+                else   cout << "\n[NOT FOUND]\n";
+            } catch (...) {
+                cout << "Invalid ID.\n";
+            }
         }
 
         else if (choice == 4) wms.listInventoryItems();

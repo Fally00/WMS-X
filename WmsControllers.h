@@ -21,8 +21,8 @@ public:
     void saveAll();
     // returns false if an item with the same id already exists
     bool addNew(const std::string &id, const std::string &name, int quantity, const std::string &location);
-    bool removeItem(const std::string &itemId);
-    Item* searchItemInInventory(const std::string &itemId);
+    bool removeItem(int itemId);
+    Item* searchItemInInventory(int itemId);
     void listInventoryItems();
 };
 

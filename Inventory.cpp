@@ -61,7 +61,7 @@ void Inventory::addItem(const Item &item) {
 // ─────────────────────────────────────────────
 // Find item by ID (Linear Search)
 // ─────────────────────────────────────────────
-Item* Inventory::findItem(const string &itemId) {
+Item* Inventory::findItem(int itemId) {
     for (auto &item : items) {
         if (item.id == itemId)
             return &item;
@@ -74,7 +74,7 @@ Item* Inventory::findItem(const string &itemId) {
 // ─────────────────────────────────────────────
 // Remove item by ID
 // ─────────────────────────────────────────────
-void Inventory::removeItem(const string &itemId) {
+void Inventory::removeItem(int itemId) {
     auto it = std::find_if(items.begin(), items.end(), 
         [&](const Item &item) { return item.id == itemId; });
 

@@ -10,8 +10,8 @@ private:
 public:
     Inventory(const std::string &filePath);
     void addItem(const Item &item);
-    void removeItem(const std::string &itemId);
-    Item* findItem(const std::string &itemId);
+    void removeItem(int itemId);
+    Item* findItem(int itemId);
     void displayAllItems() const;
     std::string toCSV(const std::string& filePath) const;
     void fromCSV(const std::string &csvData);

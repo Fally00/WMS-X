@@ -33,16 +33,23 @@ void WmsControllers::saveAll() {
     DIRECT INSTANT MODE (No Queue)
 ============================================*/
 bool WmsControllers::addNew(const string &id, const string &name, int quantity, const string &location) {
-    if (inventory.findItem(id)) {
+    int itemId;
+    try {
+        itemId = stoi(id);
+    } catch (...) {
+        cout << "[FAILED] Invalid ID." << endl;
+        return false;
+    }
+    if (inventory.findItem(itemId)) {
         cout << "[FAILED] Item with ID already exists." << endl;
         return false;
     }
-    inventory.addItem({id, name, quantity, location});
-    cout << "[ADDED] " << id << " (" << name << ")" << endl;
+    inventory.addItem({itemId, name, quantity, location});
+    cout << "[ADDED] " << itemId << " (" << name << ")" << endl;
     return true;
 }
 
-bool WmsControllers::removeItem(const string &itemId) {
+bool WmsControllers::removeItem(int itemId) {
     if (!inventory.findItem(itemId)) {
         cout << "[FAILED] Item not found." << endl;
         return false;
@@ -52,7 +59,7 @@ bool WmsControllers::removeItem(const string &itemId) {
     return true;
 }
 
-Item* WmsControllers::searchItemInInventory(const string &itemId) {
+Item* WmsControllers::searchItemInInventory(int itemId) {
     return inventory.findItem(itemId);
 }
 
@@ -91,7 +98,13 @@ void WmsControllers::processTasks() {
 
         //======================================================= ADD
         if (tokens[0] == "ADD" && tokens.size() >= 5) {
-            string id       = tokens[1];
+            int id;
+            try {
+                id = stoi(tokens[1]);
+            } catch (...) {
+                cout << "[FAILED] Invalid ID\n";
+                continue;
+            }
             string name     = tokens[2];
             int quantity    = stoi(tokens[3]);
             string location = tokens[4];
@@ -102,7 +115,13 @@ void WmsControllers::processTasks() {
 
         //======================================================= REMOVE
         else if (tokens[0] == "REMOVE" && tokens.size() >= 2) {
-            string id = tokens[1];
+            int id;
+            try {
+                id = stoi(tokens[1]);
+            } catch (...) {
+                cout << "[FAILED] Invalid ID\n";
+                continue;
+            }
             if (inventory.findItem(id)) {
                 inventory.removeItem(id);
                 cout << "[DONE] Removed → " << id << "\n";
@@ -116,7 +135,13 @@ void WmsControllers::processTasks() {
 
         //======================================================= SEARCH
         else if (tokens[0] == "SEARCH" && tokens.size() >= 2) {
-            string id = tokens[1];
+            int id;
+            try {
+                id = stoi(tokens[1]);
+            } catch (...) {
+                cout << "[FAILED] Invalid ID\n";
+                continue;
+            }
             Item* i = inventory.findItem(id);
             if (i) { cout << "\n[FOUND]\n"; i->displayItem(); }
             else cout << "[NOT FOUND]\n";
