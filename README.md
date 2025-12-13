@@ -1,36 +1,138 @@
-# Warehouse Management System (WMS) 👨‍💻
+  📦 Warehouse Management System (WMS) — C++
 
-A console-based warehouse/inventory management system written in C++:
-- Supports item add/remove/search/list
-- Supports a task queue for batch operations (ADD, REMOVE, SEARCH, LIST)
-- Data persistence via CSV (easy to switch to JSON if needed)
-- Simple file-based storage
-- Clean console interface with ASCII banner & color output
-- Configurable Auto-Save and optional queue mode
 
-## 🔧 Features
 
-- Add / remove / search / list items  
-- Queue mode: enqueue operations and process later (good for batch processing)  
-- Auto-save toggle — automatic persistence after each operation  
-- CSV-based storage  
-- Simple, extendable codebase: Inventory, Item, Storage, Controller modular architecture  
-- ANSI-colored console UI + ASCII banner for nicer user experience
 
-## 🛠️ Getting Started
+A modular, console-based Warehouse Management System written in modern C++ (C++17).
+Built to be efficient, extensible, and readable, this project demonstrates solid architecture, clean separation of concerns, and practical systems programming concepts.
 
-### Prerequisites
+Think real-world inventory logic, minus enterprise bloat.
 
-- A C++ compiler (g++ with C++17 support recommended)  
-- On Windows: MSYS2 / MinGW or similar environment  
-- On Unix-based OS: GCC / clang  
 
-### Build & Run
-the existing wms.exe is the main program that would work the command line below is for linking all files after making a change and still would make the program update and show any new details, but for making it running u will just use the .exe program 
 
-```bash
-g++ main.cpp WmsControllers.cpp Inventory.cpp Item.cpp Storage.cpp -o wms.exe
-that command to link all files and get them into one wms.exe program which the one u will use to run and be able to run the program 
+--> ✨ Key Highlights
 
-## Version
-Current version: v1.0.0
+1- 🧠 Clean Architecture — Clear separation between logic, storage, UI, and control flow
+
+2- ⚡ Efficient Core Logic — Optimized ID handling & reduced unnecessary object copies
+
+3- 🧾 Receipt System — Automatic transaction receipts (because accountability matters)
+
+4- 🔄 Batch / Queue Mode — Execute multiple operations sequentially
+
+5- 💾 CSV Persistence — Lightweight, configurable data storage
+
+6- 🎨 Console UI — ANSI colors + ASCII banners for extra drip
+
+
+
+
+--> 🔧 Features
+
+1-📦 Inventory Management
+
+Add, remove, search, and list warehouse items
+
+Clean item abstraction via the Item module
+
+2- 🧾 Receipt System (New)
+
+Automatically generates detailed receipts for inventory transactions
+
+Clear logging of item changes per operation
+
+3-⚡ Performance Improvements (New)
+
+Smarter ID assignment
+
+Improved object passing (less copying, more sanity)
+
+4- 🔄 Queue / Batch Processing
+
+Enqueue multiple operations
+
+Execute them sequentially (ideal for bulk updates)
+
+5- 💾 Auto-Save System
+
+Toggleable CSV persistence
+
+Automatically saves after operations when enabled
+
+6- 🏗️ Modular Design
+
+Each responsibility lives where it should:
+
+Inventory → Item collection & logic
+
+Item → Item data structure
+
+Storage → CSV I/O & persistence
+
+Receipt → Transaction logging
+
+WmsControllers → User input & coordination
+
+
+
+
+--> 🛠️ Getting Started
+📌 Prerequisites
+
+Compiler: Any C++ compiler with C++17 support (e.g. g++)
+
+OS:
+
+Windows (MinGW / MSYS2)
+
+Linux
+
+
+
+```
+--> 📂 Project Structure
+.
+├── main.cpp              # Application entry point
+├── WmsControllers.*      # User input & flow control
+├── Inventory.*           # Inventory management logic
+├── Item.*                # Item data structure
+├── Storage.*             # CSV persistence
+├── Receipt.*             # Receipt & transaction logging
+
+```
+
+--> 🪄 Build & Run
+
+
+▶️ Quick Run (Windows)
+
+If you just want to run it:
+
+wms.exe
+
+🔨 Build From Source
+
+If you’ve modified the code or want a clean build:
+```
+g++ main.cpp WmsControllers.cpp Inventory.cpp Item.cpp Storage.cpp Receipt.cpp -o wms.exe
+```
+
+--> ⚠️ Important:
+If you’re using the receipt system, make sure Receipt.cpp is included or the linker will choose violence.
+
+
+
+-->▶️ Run
+./wms.exe
+
+
+```
+📌 Versioning
+
+Current Version: v1.1.0
+
+Added receipt system
+
+Performance optimizations
+
+Improved internal logic
