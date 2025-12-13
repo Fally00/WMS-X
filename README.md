@@ -32,19 +32,6 @@ Compiler: A C++ compiler with C++17 support (e.g., g++).
 
 OS: Windows (MSYS2/MinGW) or Unix-based systems (Linux/macOS).
 
-Build & Run
-You can run the existing wms.exe directly. However, if you have modified the code or want to build from the source, follow the steps below.
-
-To compile the project manually:
-
-'''bash
-g++ main.cpp WmsControllers.cpp Inventory.cpp Item.cpp Storage.cpp Receipt.cpp -o wms.exe
-(Make sure to include Receipt.cpp if you have created a source file for the new receipt system!)
-
-To run the application:
-
-'''bash
-./wms.exe
 📂 Project Structure
 main.cpp: Entry point of the application.
 
@@ -57,6 +44,23 @@ Storage: Handles CSV file I/O and persistence.
 Receipt: Manages transaction logging and receipt generation.
 
 Item: Defines the data structure for warehouse items.
+
+🪄Build & Run
+You can run the existing wms.exe directly. However, if you have modified the code or want to build from the source, follow the steps below.
+
+To compile the project manually:
+
+```bash
+
+g++ main.cpp WmsControllers.cpp Inventory.cpp Item.cpp Storage.cpp -o wms.exe
+
+that command to link all files and get them into one wms.exe program which the one u will use to run and be able to run the program 
+(Make sure to include Receipt.cpp if you have created a source file for the new receipt system!)
+
+To run the application:
+
+./wms.exe
+
 
 📌 Version
 Current Version: v1.1.0 (Bumped from 1.0.0 to reflect the new features)
