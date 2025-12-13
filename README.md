@@ -31,3 +31,6 @@ the existing wms.exe is the main program that would work the command line below 
 ```bash
 g++ main.cpp WmsControllers.cpp Inventory.cpp Item.cpp Storage.cpp -o wms.exe
 that command to link all files and get them into one wms.exe program which the one u will use to run and be able to run the program 
+
+## Version
+Current version: v1.0.0
