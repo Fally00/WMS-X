@@ -97,6 +97,27 @@ This separation keeps logic **testable, readable, and maintainable**.
 
 ### Compile
 ```bash
-g++ -std=c++17 src/*.cpp -Iinclude -o wms
 
+```
 
+📈 Current Status
+Component	Status
+Inventory system	✅ Stable
+Receipt generation	✅ Functional
+Batch queue	🟡 Improving
+CSV persistence	✅ Working
+Error handling	🟡 Partial
+Code refactoring	🟡 Ongoing
+🚧 Planned Improvements
+
+Input validation & exception safety
+
+Unit tests
+
+Better receipt formatting
+
+Database support (SQLite / MySQL)
+
+Role-based access (Admin / Worker)
+
+GUI or Web interface
