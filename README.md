@@ -97,7 +97,7 @@ This separation keeps logic **testable, readable, and maintainable**.
 
 ### Compile
 ```bash
-
+g++ main.cpp WmsControllers.cpp Inventory.cpp Item.cpp Storage.cpp Receipt.cpp -o wms.exe
 ```
 
 📈 Current Status
