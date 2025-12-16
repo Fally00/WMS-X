@@ -14,23 +14,6 @@ using namespace std;
 #define MAGENTA "\033[35m"
 #define WHITE   "\033[37m"
 
-// Fancy WMS banner
-void printWelcome() {
-    cout << BLUE << " .----------------.  .----------------.  .----------------.    " << RESET << endl;
-    cout << BLUE << " | .--------------. || .--------------. || .--------------. |  " << RESET << endl;
-    cout << BLUE << " | | _____  _____ | || | ____    ____ | || |    _______   | |  " << RESET << endl;
-    cout << BLUE << " | ||_   _||_   _|| || ||_   |  /   _|| || |   /  ___  |  | |  " << RESET << endl;
-    cout << BLUE << " | |  | | /| | |  | || |  |   | /   | | || |  |  (__   |  | |  " << RESET << endl;
-    cout << BLUE << " | |  | |/  || |  | || |  | | |  /| | | || |   '.___`-.   | |  " << RESET << endl;
-    cout << BLUE << " | |  |   / |  |  | || | _| |_|/_| |_ | || |  |` ___) |   | |  " << RESET << endl;
-    cout << BLUE << " | |  |__/  |__|  | || ||_____||_____|| || |  |_______.'  | |  " << RESET << endl;
-    cout << BLUE << " | |              | || |              | || |              | |  " << RESET << endl;
-    cout << BLUE << " | '--------------' || '--------------' || '--------------' |  " << RESET << endl;
-    cout << BLUE << "  '----------------'  '----------------'  '----------------'   " << RESET << endl;
-    cout << MAGENTA << "      WAREHOUSE MANAGEMENT SYSTEM (WMS)                     " << RESET << endl;
-    cout << MAGENTA << "            Developed by Rayan Hisham & Abdelrahman Hany    " << RESET << endl;
-}
-
 
 // Helper to flush bad input
 void clearInput() {
@@ -39,14 +22,25 @@ void clearInput() {
 }
 
 int main() {
+
+    const std::string logo = R"(          _______  _______               
+|\     /|(       )(  ____ \     |\     /|
+| )   ( || () () || (    \/     ( \   / )
+| | _ | || || || || (_____  _____\ (_) / 
+| |( )| || |(_)| |(_____  )(_____)) _ (  
+| || || || |   | |      ) |      / ( ) \ 
+| () () || )   ( |/\____) |     ( /   \ )
+(_______)|/     \|\_______)     |/     \|
+                                        )";
+    cout<< MAGENTA <<logo << std::endl;
+    cout << WHITE << "      WAREHOUSE MANAGEMENT SYSTEM v1.2" << RESET << endl;
+
     WmsControllers wms("inventory_data.csv");
 
     if (!wms.initializeSystem()) {
         cerr << "[ERROR 404] System initialization failed." << endl;
         return 1;
     }
-
-    printWelcome(); // Display welcome banner
 
     int choice;
     bool autosave = false;
@@ -56,23 +50,23 @@ int main() {
     while (true) {
 
         cout << "\n\n==============================";
-        cout << BLUE << "\n < WAREHOUSE MANAGEMENT HUB >" << RESET;
+        cout << MAGENTA << "\n < WAREHOUSE MANAGEMENT HUB >" << RESET;
         cout << "\n==============================";
-        cout << GREEN << "\n[1] Add Item (Instant)";
-        cout << GREEN << "\n[2] Remove Item (Instant)";
-        cout << GREEN << "\n[3] Find Item";
-        cout << GREEN << "\n[4] List All Items";
+        cout << "\n[1] Add Item (Instant)";
+        cout << "\n[2] Remove Item (Instant)";
+        cout << "\n[3] Find Item";
+        cout << "\n[4] List All Items";
         cout << "\n------------------------------";
-        cout << CYAN << "\n[5] Queue Add";
-        cout << CYAN << "\n[6] Queue Remove";
-        cout << CYAN << "\n[7] Queue Search";
-        cout << CYAN << "\n[8] Queue List";
-        cout << CYAN << "\n[9] Process Queue";
+        cout << "\n[5] Queue Add";
+        cout << "\n[6] Queue Remove";
+        cout << "\n[7] Queue Search";
+        cout << "\n[8] Queue List";
+        cout << "\n[9] Process Queue";
         cout << "\n------------------------------";
-        cout <<RED<< "\n[10] Auto-Save  (" << (autosave ? "ON" : "OFF") << ")";
-        cout <<RED<< "\n[11] Receipt Generation";
-        cout <<RED<< "\n[12] Save & Exit";
-        cout << "\n==============================";
+        cout <<GREEN<< "\n[10] Auto-Save  (" << (autosave ? "ON" : "OFF") << ")";
+        cout <<GREEN<< "\n[11] Receipt Generation";
+        cout <<GREEN<< "\n[12] Save & Exit";
+        cout <<WHITE<< "\n==============================";
         cout <<WHITE<< "\nSelect: ";
 
         if (!(cin >> choice)) {
