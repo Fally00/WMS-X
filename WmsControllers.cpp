@@ -1,6 +1,7 @@
 #include "WmsControllers.h"
 #include "Inventory.h"
 #include "Storage.h"
+#include "Receipt.h"
 #include "Item.h"
 #include <iostream>
 #include <sstream>
