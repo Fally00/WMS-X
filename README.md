@@ -44,7 +44,7 @@ This is not your average “hello world” example — it’s a serious inventor
 --Queue up multiple operations to run sequentially — simulating real warehouse tasks. 
 
 
-##--> Data Persistence ##
+## --> Data Persistence ##
 --CSV‑based storage that loads and saves inventory automatically. 
 
 
