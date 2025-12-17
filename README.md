@@ -1,75 +1,78 @@
-# Warehouse Management System (WMS) – C++
+## WMS‑X — Warehouse Management System in Modern C++ ##
 
-A **robust, console-based Warehouse Management System** written in **modern C++**.  
-This project focuses on clean architecture, modular design, and real-world inventory workflows.
+What is WMS‑Cpp?
 
-Designed as a learning-driven yet scalable system, this WMS simulates how inventory, receipts, and batch operations are handled in real warehouse software.
+WMS‑Cpp is a console‑based Warehouse Management System implemented in robust modern C++. It models real warehouse workflows like inventory tracking, receipt handling, batch tasks, and data persistence, all with a focus on clean architecture, modularity, and real‑world usability. 
+GitHub
 
----
+This isn’t just toy code — it’s a system redesigned from the ground up with performance, readability, and maintainability in mind.
 
-## 🧠 Project Goals
+## What Changed in v1.2.0 ##
+```
+poured actual craft into this release — and it shows! This version includes:
+```
+## Major Improvements ##
 
-- Practice **real system design**, not toy examples
-- Apply **OOP principles** correctly in C++
-- Build a foundation that can later evolve into:
-  - GUI applications
-  - Database-backed systems
-  - Enterprise-level WMS software
+-- Redesigned architecture to make modules more independent and testable
 
-This is **not** a finished product — it’s an evolving system with a strong architectural base.
+-- Refactored codebase — clearer logic, better function boundaries, safer memory use
 
----
+-- Comprehensive bug fixes across core features
 
-## ⚙️ Core Features
+-- Optimizations for performance and user responsiveness
 
-### 📦 Inventory Management
-- Add, remove, update, and search items
-- Track item ID, name, quantity, and metadata
-- Centralized inventory logic
+-- More readable console UI & workflow feedback
 
-### 🧾 Receipt System
-- Generate receipts for transactions
-- Queue-based receipt item handling
-- Print and persist receipts
-- Clear receipt state after completion
+-- Better layering of logic (UI ↔ core ↔ data)
 
-### 🔁 Batch Processing
-- Queue system for executing multiple tasks sequentially
-- Designed for automation and future scheduling
+-- Path paved for future GUI, DB, or web interface support
 
-### 💾 Data Persistence
-- CSV-based storage (configurable)
-- Automatic save/load on runtime
-- Easy to replace with a database later
+This is not your average “hello world” example — it’s a serious inventory system with a foundation for expansion.
 
-### 🖥️ Console UI
-- Clean, readable console output
-- ANSI color support for better UX
-- Menu-driven interaction
+## Core Features ##
+
+## --> Inventory Management ##
+
+--Track items, quantities, metadata and search inventory efficiently. 
+
+
+## --> Receipt System ##
+--Generate, queue, and print receipts for transactions — stateful and persistent. 
+
+
+## --> Batch Processing ##
+--Queue up multiple operations to run sequentially — simulating real warehouse tasks. 
+
+
+## --> Data Persistence ##
+--CSV‑based storage that loads and saves inventory automatically. 
+
+
+## --> Console UI ##
+--ANSI‑colored, menu‑driven UX for exploring features without digging into code. 
+
 
 ---
 ```
 ## 🗂️ Project Structure
-WMS-Cpp/
-├── src/
-│ ├── main.cpp # Program entry point
-│ ├── Inventory.cpp # Inventory logic
-│ ├── Receipt.cpp # Receipt handling
-│ ├── BatchQueue.cpp # Batch processing system
-│ └── Utils.cpp # Helper utilities
-│
-├── include/
-│ ├── Item.h
-│ ├── Inventory.h
-│ ├── Receipt.h
-│ ├── BatchQueue.h
-│ └── Utils.h
-│
+WMS‑Cpp/
+├── src/                  # Implementation files
+│   ├── main.cpp
+│   ├── Inventory.cpp
+│   ├── Receipt.cpp
+│   ├── Storage.cpp
+│   ├── WmsControllers.cpp
+│   └── … 
+├── include/              # Public interface headers
+│   ├── Item.h
+│   ├── Inventory.h
+│   ├── Receipt.h
+│   ├── Storage.h
+│   └── …
 ├── data/
-│ └── inventory.csv # Persistent storage
-│
+│   └── inventory_data.csv
 ├── README.md
-└── build/ # the wms.exe program
+└── build/                # Compiled output
 ```
 
 *(Structure may evolve as the system grows)*
@@ -78,13 +81,17 @@ WMS-Cpp/
 
 ## 🧪 How It Works
 
-1. User interacts with the **console menu**
-2. Actions are routed to dedicated modules
-3. Inventory updates are reflected immediately
-4. Receipts are generated and stored
-5. Data is persisted automatically
+How It Works
 
-This separation keeps logic **testable, readable, and maintainable**.
+1- Interactive Menu — The user selects actions from a menu.
+
+2- Controller Dispatch — Controller modules route input to appropriate logic.
+
+3- Logic Modules — Inventory, receipts, and batch queues process actions.
+
+4- Persistence — CSV files auto‑save changes between runs.
+
+--> This separation keeps code **testable, readable, and maintainable**.
 
 ---
 
@@ -100,24 +107,15 @@ This separation keeps logic **testable, readable, and maintainable**.
 g++ main.cpp WmsControllers.cpp Inventory.cpp Item.cpp Storage.cpp Receipt.cpp -o wms.exe
 ```
 
-📈 Current Status
+**Current Status**
+```
 Component	Status
-Inventory system	✅ Stable
-Receipt generation	✅ Functional
-Batch queue	🟡 Improving
-CSV persistence	✅ Working
-Error handling	🟡 Partial
-Code refactoring	🟡 Ongoing
-🚧 Planned Improvements
-
-Input validation & exception safety
-
-Unit tests
-
-Better receipt formatting
-
-Database support (SQLite / MySQL)
-
-Role-based access (Admin / Worker)
-
-GUI or Web interface
+Inventory system	  -->   ✅ Stable
+Receipt generation  -->	  🟡 Functional
+Batch queue	        -->   🟠 Improving
+CSV persistence	    -->   🟡 Working
+Input validation	  -->   🛠️ Ongoing
+Unit tests	        -->   🧪 Planned
+Database support    --> 	🔜 Future
+GUI / Web interface --> 	🔜 Future
+```
