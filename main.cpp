@@ -1,4 +1,8 @@
 #include "WmsControllers.h"
+#include "Inventory.h"
+#include "Storage.h"
+#include "Item.h"
+#include "Receipt.h"
 #include <iostream>
 #include <string>
 #include <limits>
@@ -36,7 +40,7 @@ int main() {
     cout << WHITE << "      WAREHOUSE MANAGEMENT SYSTEM v1.2" << RESET << endl;
 
     WmsControllers wms("inventory_data.csv");
-
+    wms.initializeSystem();
     if (!wms.initializeSystem()) {
         cerr << "[ERROR 404] System initialization failed." << endl;
         return 1;
@@ -82,18 +86,37 @@ int main() {
                         DIRECT MODE (EASY WAY)
         ===========================================*/
         if (choice == 1) {
+            string id, name, location;
+            int qty;
+
             cout << "Enter ID: ";
             getline(cin, id);
+
+            int numericId;
+            try {
+                numericId = stoi(id);
+            } catch (...) {
+                cout << "Invalid ID. Must be a number.\n";
+                break;
+            }
+
             cout << "Enter Name: ";
             getline(cin, name);
+
             cout << "Enter Quantity: ";
             cin >> qty; clearInput();
+
             cout << "Enter Location: ";
             getline(cin, location);
 
-            wms.addNew(id, name, qty, location);
-            if (autosave) wms.saveAll();
+            if (wms.addNew(numericId, name, qty, location)) {
+                if (autosave) wms.saveAll();
+                cout << GREEN << "Item added successfully.\n";
+            } else {
+                cout << RED << "Item ID already exists.\n";
+            }
         }
+
 
         else if (choice == 2) {
             cout << "Enter ID: "; getline(cin, id);
@@ -111,10 +134,10 @@ int main() {
             try {
                 int itemId = stoi(id);
                 auto *x = wms.searchItemInInventory(itemId);
-                if (x) cout << "\n[FOUND]\n", printItem(const_cast<const Item&>(*x));
-                else   cout << "\n[NOT FOUND]\n";
+                if (x) cout <<GREEN<< "\n[FOUND]\n", printItem(const_cast<const Item&>(*x));
+                else   cout <<RED<< "\n[NOT FOUND]\n";
             } catch (...) {
-                cout << "Invalid ID.\n";
+                cout <<RED<< "Invalid ID.\n";
             }
         }
 
@@ -156,7 +179,7 @@ int main() {
         /*==========================================
                     RECEIPT GENERATION
         ===========================================*/
-        else if (choice == 11) {
+         else if (choice == 11) {
             Receipt receipt;
             while (true) {
                 cout << "Enter Item ID to add to receipt (or 'done' to finish): ";
@@ -197,6 +220,7 @@ int main() {
             cout << "Receipt saved to 'receipt.csv'.\n";
             break;
         }
+
 
 
         /*==========================================

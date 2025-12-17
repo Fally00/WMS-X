@@ -10,9 +10,8 @@ using namespace std;
 // ─────────────────────────────────────────────
 // Constructor
 // ─────────────────────────────────────────────
-Inventory::Inventory(const std::string &filePath) : dataFilePath(filePath) {}
-
-
+Inventory::Inventory(const std::string &filePath)
+    : dataFilePath(filePath) {}
 
 // ─────────────────────────────────────────────
 // Load data from CSV string (Updated)
