@@ -1,8 +1,8 @@
 ## WMS‑X — Warehouse Management System in Modern C++ ##
 
-What is WMS‑Cpp?
+What is WMS‑X?
 
-WMS‑Cpp is a console‑based Warehouse Management System implemented in robust modern C++. It models real warehouse workflows like inventory tracking, receipt handling, batch tasks, and data persistence, all with a focus on clean architecture, modularity, and real‑world usability. 
+WMS‑X is a console‑based Warehouse Management System implemented in robust modern C++. It models real warehouse workflows like inventory tracking, receipt handling, batch tasks, and data persistence, all with a focus on clean architecture, modularity, and real‑world usability. 
 GitHub
 
 This isn’t just toy code — it’s a system redesigned from the ground up with performance, readability, and maintainability in mind.
@@ -11,6 +11,8 @@ This isn’t just toy code — it’s a system redesigned from the ground up wit
 ```
 poured actual craft into this release — and it shows! This version includes:
 ```
+![System showcase](assest/wmsx.png)
+
 ## Major Improvements ##
 
 -- Redesigned architecture to make modules more independent and testable
@@ -28,7 +30,7 @@ poured actual craft into this release — and it shows! This version includes:
 -- Path paved for future GUI, DB, or web interface support
 
 This is not your average “hello world” example — it’s a serious inventory system with a foundation for expansion.
-
+```
 ## Core Features ##
 
 ## --> Inventory Management ##
@@ -49,8 +51,10 @@ This is not your average “hello world” example — it’s a serious inventor
 
 
 ## --> Console UI ##
---ANSI‑colored, menu‑driven UX for exploring features without digging into code. 
+--ANSI‑colored, menu‑driven UX for exploring features without digging into code.
 
+
+```
 
 ---
 ```
