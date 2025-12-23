@@ -84,7 +84,7 @@ int main() {
         cout << endl;
 
         /*==========================================
-                        DIRECT MODE (EASY WAY)
+                DIRECT MODE (Enqueue embedded)
         ===========================================*/
         if (choice == 1) {
             string id, name, location;
@@ -110,12 +110,9 @@ int main() {
             cout << "Enter Location: ";
             getline(cin, location);
 
-            if (wms.addNew(numericId, name, qty, location)) {
-                if (autosave) wms.saveAll();
-                cout << GREEN << "Item added successfully.\n";
-            } else {
-                cout << RED << "Item ID already exists.\n";
-            }
+            wms.enqueueAddTask(numericId, name, qty, location, true);
+            wms.processTasks();
+            if (autosave) wms.saveAll();
         }
 
 
@@ -123,7 +120,8 @@ int main() {
             cout << "Enter ID: "; getline(cin, id);
             try {
                 int itemId = stoi(id);
-                wms.removeItem(itemId);
+                wms.enqueueRemoveTask(itemId, true);
+                wms.processTasks();
                 if (autosave) wms.saveAll();
             } catch (...) {
                 cout << RED << "Invalid ID.\n";
@@ -134,48 +132,76 @@ int main() {
             cout << "Enter ID: "; getline(cin, id);
             try {
                 int itemId = stoi(id);
-                auto *x = wms.searchItemInInventory(itemId);
-                if (x) cout <<GREEN<< "\n[FOUND]\n", printItem(const_cast<const Item&>(*x));
-                else   cout <<RED<< "\n[NOT FOUND]\n";
+                wms.enqueueSearchTask(itemId, true);
+                wms.processTasks();
             } catch (...) {
                 cout <<RED<< "Invalid ID.\n";
             }
         }
 
-        else if (choice == 4) wms.listInventoryItems();
+        else if (choice == 4) {
+            wms.enqueueListTask(true);
+            wms.processTasks();
+        }
 
 
 
         /*==========================================
                         QUEUE MODE (ADVANCED)
-        ===========================================*/
-        else if (choice == 5) {
-            cout << "ID: "; getline(cin, id);
-            cout << "Name: "; getline(cin, name);
-            cout << "Qty: "; cin >> qty; clearInput();
-            cout << "Location: "; getline(cin, location);
+        ==========================================*/
 
-            wms.enqueueTask("ADD " + id + " " + name + " " + to_string(qty) + " " + location);
+        else if (choice == 5) {
+            cout << "ID: "; 
+            getline(cin, id);
+            
+            cout << "Name: "; 
+            getline(cin, name);
+            
+            cout << "Qty: "; 
+            cin >> qty; 
+            clearInput();
+            
+            cout << "Location: "; 
+            getline(cin, location);
+
+            // Use the new convenience method
+            wms.enqueueAddTask(stoi(id), name, qty, location);
         }
 
         else if (choice == 6) {
-            cout << "ID to remove: "; getline(cin, id);
-            wms.enqueueTask("REMOVE " + id);
+            cout << "ID to remove: "; 
+            getline(cin, id);
+            
+            try {
+                int itemId = stoi(id);
+                wms.enqueueRemoveTask(itemId);
+            } catch (const std::exception& e) {
+                cout << "[ERROR] Invalid ID format: " << e.what() << endl;
+            }
         }
 
         else if (choice == 7) {
-            cout << "ID to search: "; getline(cin, id);
-            wms.enqueueTask("SEARCH " + id);
+            cout << "ID to search: "; 
+            getline(cin, id);
+            
+            try {
+                int itemId = stoi(id);
+                wms.enqueueSearchTask(itemId);
+            } catch (const std::exception& e) {
+                cout << "[ERROR] Invalid ID format: " << e.what() << endl;
+            }
         }
 
         else if (choice == 8) {
-            wms.enqueueTask("LIST");
+            wms.enqueueListTask();
         }
 
         else if (choice == 9) {
             wms.processTasks();
             if (autosave) wms.saveAll();
         }
+
+
 
         /*==========================================
                     RECEIPT GENERATION
@@ -213,7 +239,7 @@ int main() {
 
                 receipt.addItem(*item, quantity);
                 item->changeQuantity(-quantity);
-                cout << "Added to receipt.\n";     // there is error in the non stopping loop i need to check it later 
+                cout << "Added to receipt.\n";     
             }
  
             receipt.print();
@@ -229,7 +255,7 @@ int main() {
         ===========================================*/
         else if (choice == 10) {
             autosave = !autosave;
-            cout << "[AUTO-SAVE] → " << (autosave ? "Enabled" : "Disabled") << endl;
+            cout << "[AUTO-SAVE] : " << (autosave ? "Enabled" : "Disabled") << endl;
         }
 
         else if (choice == 11) {

@@ -13,9 +13,6 @@ using namespace std;
     INITIALIZATION + SAVE SYSTEM
 ============================================*/
 
-WmsControllers::WmsControllers(const std::string& storageFilePath)
-    : inventory(storageFilePath),storage(storageFilePath){}
-
 bool WmsControllers::initializeSystem() {
     if (!storage.intializeStorage()) {
         cerr << "[ERROR] Could not initialize storage file!" << endl;
@@ -42,36 +39,6 @@ void WmsControllers::saveAll() {
     }
 }
 
-/*==========================================
-    DIRECT INSTANT MODE (No Queue)
-============================================*/
-bool WmsControllers::addNew(int id, const std::string& name, int quantity, const std::string& location) {
-    int itemId;
-    try {
-        itemId = (id);
-    } catch (...) {
-        cout << "[FAILED] Invalid ID." << endl;
-        return false;
-    }
-    if (inventory.findItem(itemId)) {
-        cout << "[FAILED] Item with ID already exists." << endl;
-        return false;
-    }
-    inventory.addItem({itemId, name, quantity, location});
-    cout << "[ADDED] " << itemId << " (" << name << ")" << endl;
-    return true;
-}
-
-bool WmsControllers::removeItem(int itemId) {
-    if (!inventory.findItem(itemId)) {
-        cout << "[FAILED] Item not found." << endl;
-        return false;
-    }
-    inventory.removeItem(itemId);
-    cout << "[REMOVED] " << itemId << endl;
-    return true;
-}
-
 Item* WmsControllers::searchItemInInventory(int itemId) {
     return inventory.findItem(itemId);
 }
@@ -83,124 +50,246 @@ void WmsControllers::listInventoryItems() {
 
 
 /*==========================================
-                 QUEUE SYSTEM 2.0
+        ENHANCED QUEUE SYSTEM 2.1
 ==========================================*/
 
-void WmsControllers::enqueueTask(const string& task) {
-    taskQueue.push(task);
-    cout << "[QUEUED] " << task << endl;
+WmsControllers::WmsControllers(const std::string& storageFilePath) 
+    : inventory(storageFilePath), storage(storageFilePath) {
+    // Initialize command mapping
+    commandMap["ADD"] = [this](const std::vector<std::string>& params) { 
+        return this->handleAdd(params); 
+    };
+    commandMap["REMOVE"] = [this](const std::vector<std::string>& params) { 
+        return this->handleRemove(params); 
+    };
+    commandMap["LIST"] = [this](const std::vector<std::string>& params) { 
+        return this->handleList(params); 
+    };
+    commandMap["SEARCH"] = [this](const std::vector<std::string>& params) { 
+        return this->handleSearch(params); 
+    };
+}
+
+void WmsControllers::enqueueTask(const std::string& task) {
+    std::vector<std::string> tokens = split(task, ' ');
+    if (!tokens.empty()) {
+        std::string command = tokens[0];
+        std::vector<std::string> params(tokens.begin() + 1, tokens.end());
+        taskQueue.push(Task(command, params));
+        std::cout << "[QUEUED] " << task << std::endl;
+    }
+}
+
+// Convenience methods for specific tasks
+void WmsControllers::enqueueAddTask(int id, const std::string& name, 
+                                   int quantity, const std::string& location, bool silent) {
+    std::vector<std::string> params = {std::to_string(id), name, 
+                                      std::to_string(quantity), location};
+    taskQueue.push(Task("ADD", params));
+    if (!silent) std::cout << "[QUEUED] ADD " << id << " " << name << " " << quantity << " " << location << std::endl;
+}
+
+void WmsControllers::enqueueRemoveTask(int id, bool silent) {
+    std::vector<std::string> params = {std::to_string(id)};
+    taskQueue.push(Task("REMOVE", params));
+    if (!silent) std::cout << "[QUEUED] REMOVE " << id << std::endl;
+}
+
+void WmsControllers::enqueueListTask(bool silent) {
+    taskQueue.push(Task("LIST", {}));
+    if (!silent) std::cout << "[QUEUED] LIST" << std::endl;
+}
+
+void WmsControllers::enqueueSearchTask(int id, bool silent) {
+    std::vector<std::string> params = {std::to_string(id)};
+    taskQueue.push(Task("SEARCH", params));
+    if (!silent) std::cout << "[QUEUED] SEARCH " << id << std::endl;
 }
 
 // ------------------------------------------------------------
-// Helper: split string by delimiter
+// Helper: split string by delimiter (improved)
 // ------------------------------------------------------------
-static vector<string> split(const string& s, char delim) {
-    vector<string> parts;
-    string temp;
-    stringstream ss(s);
+std::vector<std::string> WmsControllers::split(const std::string& s, char delim) {
+    std::vector<std::string> parts;
+    std::string temp;
+    std::stringstream ss(s);
 
-    while (getline(ss, temp, delim)) {
-        if (!temp.empty())   
-            parts.push_back(temp);
+    while (std::getline(ss, temp, delim)) {
+        if (!temp.empty()) {
+            // Trim whitespace
+            size_t start = temp.find_first_not_of(" \t");
+            size_t end = temp.find_last_not_of(" \t");
+            if (start != std::string::npos) {
+                parts.push_back(temp.substr(start, end - start + 1));
+            } else {
+                parts.push_back(temp);
+            }
+        }
     }
     return parts;
 }
 
-//Process all tasks in the queue
+// ------------------------------------------------------------
+// Validation helper
+// ------------------------------------------------------------
+bool WmsControllers::validateNumeric(const std::string& str) {
+    if (str.empty()) return false;
+    
+    size_t start = 0;
+    if (str[0] == '-' || str[0] == '+') start = 1;
+    
+    for (size_t i = start; i < str.length(); ++i) {
+        if (!std::isdigit(str[i])) return false;
+    }
+    return true;
+}
+
+// ------------------------------------------------------------
+// Command handlers
+// ------------------------------------------------------------
+bool WmsControllers::handleAdd(const std::vector<std::string>& params) {
+    if (params.size() != 4) {
+        std::cout << "[FAILED] Usage: ADD <id> <name> <qty> <location>\n";
+        return false;
+    }
+
+    if (!validateNumeric(params[0]) || !validateNumeric(params[2])) {
+        std::cout << "[FAILED] Invalid numeric value\n";
+        return false;
+    }
+
+    try {
+        int id = std::stoi(params[0]);
+        int quantity = std::stoi(params[2]);
+        
+        if (quantity < 0) {
+            std::cout << "[FAILED] Quantity cannot be negative\n";
+            return false;
+        }
+
+        std::string name = params[1];
+        std::string location = params[3];
+
+        // Check if item already exists
+        if (inventory.findItem(id)) {
+            std::cout << "[FAILED] Item with ID " << id << " already exists\n";
+            return false;
+        }
+
+        inventory.addItem({id, name, quantity, location});
+        std::cout << "[DONE] Added : " << id << " (" << name << ")\n";
+        return true;
+        
+    } catch (const std::exception& e) {
+        std::cout << "[FAILED] Invalid numeric value: " << e.what() << "\n";
+        return false;
+    }
+}
+
+bool WmsControllers::handleRemove(const std::vector<std::string>& params) {
+    if (params.size() != 1) {
+        std::cout << "[FAILED] Usage: REMOVE <id>\n";
+        return false;
+    }
+
+    if (!validateNumeric(params[0])) {
+        std::cout << "[FAILED] Invalid ID\n";
+        return false;
+    }
+
+    try {
+        int id = std::stoi(params[0]);
+        
+        if (inventory.findItem(id)) {
+            inventory.removeItem(id);
+            std::cout << "[DONE] Removed :" << id << "\n";
+            return true;
+        } else {
+            std::cout << "[FAILED] Item not found: " << id << "\n";
+            return false;
+        }
+    } catch (const std::exception& e) {
+        std::cout << "[FAILED] Invalid ID: " << e.what() << "\n";
+        return false;
+    }
+}
+
+bool WmsControllers::handleList(const std::vector<std::string>& params) {
+    if (!params.empty()) {
+        std::cout << "[FAILED] Usage: LIST (no parameters needed)\n";
+        return false;
+    }
+    
+    inventory.displayItems();
+    return true;
+}
+
+bool WmsControllers::handleSearch(const std::vector<std::string>& params) {
+    if (params.size() != 1) {
+        std::cout << "[FAILED] Usage: SEARCH <id>\n";
+        return false;
+    }
+
+    if (!validateNumeric(params[0])) {
+        std::cout << "[FAILED] Invalid ID\n";
+        return false;
+    }
+
+    try {
+        int id = std::stoi(params[0]);
+        Item* item = inventory.findItem(id);
+        
+        if (item) {
+            std::cout << "\n[FOUND]\n";
+            printItem(*item);
+            return true;
+        } else {
+            std::cout << "[NOT FOUND] Item " << id << "\n";
+            return false;
+        }
+    } catch (const std::exception& e) {
+        std::cout << "[FAILED] Invalid ID: " << e.what() << "\n";
+        return false;
+    }
+}
+
+// ------------------------------------------------------------
+// Process all tasks in queue
+// ------------------------------------------------------------
 void WmsControllers::processTasks() {
-    cout << "\n========== PROCESSING TASK QUEUE ==========\n";
+    std::cout << "\n========== PROCESSING TASK QUEUE ==========\n";
+    
+    if (taskQueue.empty()) {
+        std::cout << "[INFO] No tasks to process\n";
+        return;
+    }
+
+    int processedCount = 0;
+    int failedCount = 0;
 
     while (!taskQueue.empty()) {
-        string task = taskQueue.front();
+        Task task = taskQueue.front();
         taskQueue.pop();
 
-        cout << ">> " << task << endl;
-
-        vector<string> tokens = split(task, ' ');
-
-        if (tokens.empty()) {
-            cout << "[FAILED] Empty command\n";
-            continue;
+        std::cout << ">> " << task.command;
+        for (const auto& param : task.parameters) {
+            std::cout << " " << param;
         }
+        std::cout << std::endl;
 
-        // ======================================================= ADD
-        if (tokens[0] == "ADD") {
-            if (tokens.size() != 5) {
-                cout << "[FAILED] Usage: ADD <id> <name> <qty> <location>\n";
-                continue;
-            }
-
-            int id, quantity;
-            try {
-                id       = stoi(tokens[1]);
-                quantity = stoi(tokens[3]);
-            } catch (...) {
-                cout << "[FAILED] Invalid numeric value\n";
-                continue;
-            }
-
-            string name     = tokens[2];
-            string location = tokens[4];
-
-            inventory.addItem({id, name, quantity, location});
-            cout << "[DONE] Added → " << id << "\n";
-        }
-
-        // ======================================================= REMOVE
-        else if (tokens[0] == "REMOVE") {
-            if (tokens.size() != 2) {
-                cout << "[FAILED] Usage: REMOVE <id>\n";
-                continue;
-            }
-
-            int id;
-            try {
-                id = stoi(tokens[1]);
-            } catch (...) {
-                cout << "[FAILED] Invalid ID\n";
-                continue;
-            }
-
-            if (inventory.findItem(id)) {
-                inventory.removeItem(id);
-                cout << "[DONE] Removed → " << id << "\n";
+        auto it = commandMap.find(task.command);
+        if (it != commandMap.end()) {
+            if (it->second(task.parameters)) {
+                processedCount++;
             } else {
-                cout << "[FAILED] Item not found\n";
+                failedCount++;
             }
-        }
-
-        // ======================================================= LIST
-        else if (tokens[0] == "LIST") {
-            inventory.displayItems();
-        }
-
-        // ======================================================= SEARCH
-        else if (tokens[0] == "SEARCH") {
-            if (tokens.size() != 2) {
-                cout << "[FAILED] Usage: SEARCH <id>\n";
-                continue;
-            }
-
-            int id;
-            try {
-                id = stoi(tokens[1]);
-            } catch (...) {
-                cout << "[FAILED] Invalid ID\n";
-                continue;
-            }
-
-            Item* item = inventory.findItem(id);
-            if (item) {
-                cout << "\n[FOUND]\n";
-                printItem(*item);
-            } else {
-                cout << "[NOT FOUND]\n";
-            }
-        }
-
-        // ======================================================= UNKNOWN Command
-        else {
-            cout << "[FAILED] Unknown command\n";
+        } else {
+            std::cout << "[FAILED] Unknown command: " << task.command << "\n";
+            failedCount++;
         }
     }
+
+    std::cout << "\n========== TASK PROCESSING COMPLETE ==========\n";
+    std::cout << "Processed: " << processedCount << " | Failed: " << failedCount << std::endl;
 }

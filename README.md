@@ -110,12 +110,12 @@ g++ main.cpp WmsControllers.cpp Inventory.cpp Item.cpp Storage.cpp Receipt.cpp -
 **Current Status**
 ```
 Component	Status
-Inventory system	  -->   ✅ Stable
+Inventory system	-->   ✅ Stable
 Receipt generation  -->	  🟡 Functional
-Batch queue	        -->   🟠 Improving
+Batch queue	        -->   🟠 Improved
 CSV persistence	    -->   🟡 Working
-Input validation	  -->   🛠️ Ongoing
+Input validation	-->   ✅ done
 Unit tests	        -->   🧪 Planned
-Database support    --> 	🔜 Future
-GUI / Web interface --> 	🔜 Future
+Database support    -->   🔜 Future
+CLI                 -->   🔜 Future
 ```

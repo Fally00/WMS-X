@@ -1,7 +1,7 @@
 #pragma once
+#include "Item.h"
 #include <vector>
 #include <string>
-#include "Item.h"
 
 class Inventory {
 private:
