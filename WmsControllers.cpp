@@ -47,6 +47,29 @@ void WmsControllers::listInventoryItems() {
     inventory.displayItems();
 }
 
+bool WmsControllers::addItem(int id, const std::string& name, int quantity, const std::string& location) {
+    // Check if item already exists
+    if (inventory.findItem(id)) {
+        return false;
+    }
+
+    if (quantity < 0) {
+        return false;
+    }
+
+    inventory.addItem({id, name, quantity, location});
+    return true;
+}
+
+bool WmsControllers::removeItem(int id) {
+    if (!inventory.findItem(id)) {
+        return false;
+    }
+
+    inventory.removeItem(id);
+    return true;
+}
+
 
 
 /*==========================================

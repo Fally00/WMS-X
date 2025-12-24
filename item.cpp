@@ -1,14 +1,20 @@
 #include "Item.h"
+#include "output.h"
 #include <iostream>
 #include <sstream>
+#include <vector>
 using namespace std;
 
 // Print Item Details (Improved)
 void printItem(const Item& item) {
-    cout << "Item ID: " << item.getId() << endl;
-    cout << "Item Name: " << item.getName() << endl;
-    cout << "Quantity: " << item.getQuantity() << endl;
-    cout << "Location: " << item.getLocation() << endl;
+    std::vector<std::string> headers = {"ID", "Name", "Quantity", "Location"};
+    std::vector<std::vector<std::string>> rows = {{
+        std::to_string(item.getId()),
+        item.getName(),
+        std::to_string(item.getQuantity()),
+        item.getLocation()
+    }};
+    OutputFormatter::printTable(headers, rows);
 }
 
 // Modified method name

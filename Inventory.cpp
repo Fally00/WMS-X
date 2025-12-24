@@ -1,10 +1,12 @@
 #include "Inventory.h"
 #include "Item.h"
+#include "output.h"
 #include <algorithm>
 #include <iostream>
 #include <sstream>
 #include <fstream>
 #include <string>
+#include <vector>
 using namespace std;
 
 // ─────────────────────────────────────────────
@@ -44,10 +46,24 @@ string Inventory::toCSV(const string& /*filePath*/) const {
 // Display all items
 // ─────────────────────────────────────────────
 void Inventory::displayItems() const {
-    for (const auto &item : items) {
-        printItem(item);
-        std::cout << "------------------\n";
+    if (items.empty()) {
+        OutputFormatter::printWarning("No items in inventory");
+        return;
     }
+
+    std::vector<std::string> headers = {"ID", "Name", "Quantity", "Location"};
+    std::vector<std::vector<std::string>> rows;
+
+    for (const auto &item : items) {
+        rows.push_back({
+            std::to_string(item.getId()),
+            item.getName(),
+            std::to_string(item.getQuantity()),
+            item.getLocation()
+        });
+    }
+
+    OutputFormatter::printTable(headers, rows);
 }
 
 

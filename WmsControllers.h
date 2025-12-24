@@ -55,4 +55,8 @@ public:
     // Direct methods for search and list
     Item* searchItemInInventory(int itemId);
     void listInventoryItems();
+
+    // Direct methods for add/remove
+    bool addItem(int id, const std::string& name, int quantity, const std::string& location);
+    bool removeItem(int id);
 };

@@ -3,274 +3,344 @@
 #include "Storage.h"
 #include "Item.h"
 #include "Receipt.h"
+#include "cli.h"
+#include "output.h"
 #include <iostream>
 #include <string>
+#include <vector>
 #include <limits>
+#include <sstream>
 using namespace std;
 
-// ANSI color codes
-#define RESET   "\033[0m"
-#define RED     "\033[31m"
-#define GREEN   "\033[32m"
-#define YELLOW  "\033[33m"
-#define BLUE    "\033[34m"
-#define CYAN    "\033[36m"
-#define MAGENTA "\033[35m"
-#define WHITE   "\033[37m"
+/*==========================================
+    CLI MAIN ENTRY POINT
+============================================*/
 
+int runInteractiveMode();
 
-// Helper to flush bad input
-void clearInput() {
-    cin.clear();
-    cin.ignore(numeric_limits<std::streamsize>::max(), '\n');
-}
+int main(int argc, char* argv[]) {
+    CLIParser parser(argc, argv);
+    CLIOptions options = parser.parse();
 
-int main() {
+    if (options.showVersion) {
+        OutputFormatter::printVersion();
+        std::cout << "\nPress Enter to exit...";
+        std::cin.get();
+        return 0;
+    }
 
-    const std::string logo = R"(          _______  _______               
-|\     /|(       )(  ____ \     |\     /|
-| )   ( || () () || (    \/     ( \   / )
-| | _ | || || || || (_____  _____\ (_) / 
-| |( )| || |(_)| |(_____  )(_____)) _ (  
-| || || || |   | |      ) |      / ( ) \ 
-| () () || )   ( |/\____) |     ( /   \ )
-(_______)|/     \|\_______)     |/     \|
-                                        )";
-    cout<< MAGENTA <<logo << std::endl;
-    cout << WHITE << "      WAREHOUSE MANAGEMENT SYSTEM v1.2" << RESET << endl;
-    cout << MAGENTA << "           Devoloped by Rayan Hisham & Abdulrahman Shaalan" << RESET << endl;
+    if (options.showHelp) {
+        OutputFormatter::printHelp();
+        return 0;
+    }
+
+    // Check for interactive mode (no arguments provided)
+    if (options.interactive) {
+        return runInteractiveMode();
+    }
+
+    OutputFormatter::printLogo();
 
     WmsControllers wms("inventory_data.csv");
-    wms.initializeSystem();
     if (!wms.initializeSystem()) {
-        cerr << RED << "[ERROR 404] System initialization failed." << endl;
+        OutputFormatter::printError("System initialization failed.");
+        std::cout << "\nPress Enter to exit...";
+        std::cin.get();
         return 1;
     }
 
-    int choice;
+    OutputFormatter::printSuccess("System initialized successfully");
+
+    bool autosave = options.flags.count("autosave") > 0;
+
+    if (autosave) {
+        OutputFormatter::printInfo("Autosave enabled");
+    }
+
+    // Handle commands
+    if (options.command == "add") {
+        if (options.positionalArgs.size() < 4) {
+            OutputFormatter::printError("Usage: wms add <id> <name> <quantity> <location>");
+            return 1;
+        }
+
+        int id = stoi(options.positionalArgs[0]);
+        string name = options.positionalArgs[1];
+        int quantity = stoi(options.positionalArgs[2]);
+        string location = options.positionalArgs[3];
+
+        // Check if item already exists
+        if (wms.searchItemInInventory(id)) {
+            OutputFormatter::printError("Item with ID " + to_string(id) + " already exists");
+            return 1;
+        }
+
+        if (wms.addItem(id, name, quantity, location)) {
+            OutputFormatter::printSuccess("Item added successfully");
+            if (autosave) wms.saveAll();
+        } else {
+            OutputFormatter::printError("Failed to add item");
+        }
+    }
+    else if (options.command == "remove") {
+        if (options.positionalArgs.size() < 1) {
+            OutputFormatter::printError("Usage: wms remove <id>");
+            return 1;
+        }
+
+        int id = stoi(options.positionalArgs[0]);
+        if (wms.removeItem(id)) {
+            OutputFormatter::printSuccess("Item removed successfully");
+            if (autosave) wms.saveAll();
+        } else {
+            OutputFormatter::printError("Item not found");
+        }
+    }
+    else if (options.command == "find") {
+        if (options.positionalArgs.size() < 1) {
+            OutputFormatter::printError("Usage: wms find <id>");
+            return 1;
+        }
+
+        int id = stoi(options.positionalArgs[0]);
+        Item* item = wms.searchItemInInventory(id);
+        if (item) {
+            OutputFormatter::printInfo("Item found:");
+            printItem(*item);
+        } else {
+            OutputFormatter::printError("Item not found");
+        }
+    }
+    else if (options.command == "list") {
+        wms.listInventoryItems();
+    }
+    else if (options.command == "queue") {
+        string operation = options.subcommand;
+        if (operation.empty()) {
+            if (options.positionalArgs.size() < 1) {
+                OutputFormatter::printError("Usage: wms queue <operation> [args...]");
+                return 1;
+            }
+            operation = options.positionalArgs[0];
+        }
+
+        if (operation == "add") {
+            if (options.positionalArgs.size() < 4) {
+                OutputFormatter::printError("Usage: wms queue add <id> <name> <quantity> <location>");
+                return 1;
+            }
+            try {
+                int id = stoi(options.positionalArgs[0]);
+                string name = options.positionalArgs[1];
+                int quantity = stoi(options.positionalArgs[2]);
+                string location = options.positionalArgs[3];
+                wms.enqueueAddTask(id, name, quantity, location);
+                OutputFormatter::printSuccess("Add operation queued");
+            } catch (const std::invalid_argument&) {
+                OutputFormatter::printError("Invalid numeric input for ID or quantity");
+                return 1;
+            }
+        }
+        else if (operation == "remove") {
+            if (options.positionalArgs.size() < 1) {
+                OutputFormatter::printError("Usage: wms queue remove <id>");
+                return 1;
+            }
+            try {
+                int id = stoi(options.positionalArgs[0]);
+                wms.enqueueRemoveTask(id);
+                OutputFormatter::printSuccess("Remove operation queued");
+            } catch (const std::invalid_argument&) {
+                OutputFormatter::printError("Invalid numeric input for ID");
+                return 1;
+            }
+        }
+        else {
+            OutputFormatter::printError("Invalid queue operation: " + operation);
+        }
+    }
+    else if (options.command == "process") {
+        wms.processTasks();
+        OutputFormatter::printSuccess("Tasks processed");
+        if (autosave) wms.saveAll();
+    }
+    else if (options.command == "save") {
+        wms.saveAll();
+        OutputFormatter::printSuccess("Data saved");
+    }
+    else {
+        OutputFormatter::printError("Unknown command: " + options.command);
+        OutputFormatter::printInfo("Use 'wms --help' for available commands");
+        return 1;
+    }
+
+    return 0;
+}
+
+/*==========================================
+    INTERACTIVE MODE FALLBACK
+============================================*/
+
+int runInteractiveMode() {
+    OutputFormatter::printLogo();
+
+    WmsControllers wms("inventory_data.csv");
+    if (!wms.initializeSystem()) {
+        OutputFormatter::printError("System initialization failed.");
+        return 1;
+    }
+
+    OutputFormatter::printSuccess("System initialized successfully");
+    OutputFormatter::printInfo("Type 'help' for available commands or 'exit' to quit.");
+
     bool autosave = false;
-    string id, name, location;
-    int qty;
+    string input;
 
     while (true) {
+        cout << "\nStart> ";
+        getline(cin, input);
 
-        cout << "\n\n==============================";
-        cout << MAGENTA << "\n < WAREHOUSE MANAGEMENT HUB >" << RESET;
-        cout << "\n==============================";
-        cout << "\n[1] Add Item (Instant)";
-        cout << "\n[2] Remove Item (Instant)";
-        cout << "\n[3] Find Item";
-        cout << "\n[4] List All Items";
-        cout << "\n------------------------------";
-        cout << "\n[5] Queue Add";
-        cout << "\n[6] Queue Remove";
-        cout << "\n[7] Queue Search";
-        cout << "\n[8] Queue List";
-        cout << "\n[9] Process Queue";
-        cout << "\n------------------------------";
-        cout <<GREEN<< "\n[10] Auto-Save  (" << (autosave ? "ON" : "OFF") << ")";
-        cout <<GREEN<< "\n[11] Receipt Generation";
-        cout <<GREEN<< "\n[12] Save & Exit";
-        cout <<WHITE<< "\n==============================";
-        cout <<WHITE<< "\nSelect: ";
+        if (input.empty()) continue;
 
-        if (!(cin >> choice)) {
-            clearInput();
-            cout << RED << "\n[ERROR 303] Invalid number.\n";
-            continue;
-        }
-        clearInput(); // reset input buffer for getline use
-
-        cout << endl;
-
-        /*==========================================
-                DIRECT MODE (Enqueue embedded)
-        ===========================================*/
-        if (choice == 1) {
-            string id, name, location;
-            int qty;
-
-            cout << "Enter ID: ";
-            getline(cin, id);
-
-            int numericId;
-            try {
-                numericId = stoi(id);
-            } catch (...) {
-                cout << RED << "Invalid ID. Must be a number.\n";
-                break;
-            }
-
-            cout << "Enter Name: ";
-            getline(cin, name);
-
-            cout << "Enter Quantity: ";
-            cin >> qty; clearInput();
-
-            cout << "Enter Location: ";
-            getline(cin, location);
-
-            wms.enqueueAddTask(numericId, name, qty, location, true);
-            wms.processTasks();
-            if (autosave) wms.saveAll();
+        // Simple command parsing
+        vector<string> args;
+        stringstream ss(input);
+        string token;
+        while (ss >> token) {
+            args.push_back(token);
         }
 
+        if (args.empty()) continue;
 
-        else if (choice == 2) {
-            cout << "Enter ID: "; getline(cin, id);
-            try {
-                int itemId = stoi(id);
-                wms.enqueueRemoveTask(itemId, true);
-                wms.processTasks();
-                if (autosave) wms.saveAll();
-            } catch (...) {
-                cout << RED << "Invalid ID.\n";
-            }
-        }
+        string command = args[0];
 
-        else if (choice == 3) {
-            cout << "Enter ID: "; getline(cin, id);
-            try {
-                int itemId = stoi(id);
-                wms.enqueueSearchTask(itemId, true);
-                wms.processTasks();
-            } catch (...) {
-                cout <<RED<< "Invalid ID.\n";
-            }
-        }
-
-        else if (choice == 4) {
-            wms.enqueueListTask(true);
-            wms.processTasks();
-        }
-
-
-
-        /*==========================================
-                        QUEUE MODE (ADVANCED)
-        ==========================================*/
-
-        else if (choice == 5) {
-            cout << "ID: "; 
-            getline(cin, id);
-            
-            cout << "Name: "; 
-            getline(cin, name);
-            
-            cout << "Qty: "; 
-            cin >> qty; 
-            clearInput();
-            
-            cout << "Location: "; 
-            getline(cin, location);
-
-            // Use the new convenience method
-            wms.enqueueAddTask(stoi(id), name, qty, location);
-        }
-
-        else if (choice == 6) {
-            cout << "ID to remove: "; 
-            getline(cin, id);
-            
-            try {
-                int itemId = stoi(id);
-                wms.enqueueRemoveTask(itemId);
-            } catch (const std::exception& e) {
-                cout << "[ERROR] Invalid ID format: " << e.what() << endl;
-            }
-        }
-
-        else if (choice == 7) {
-            cout << "ID to search: "; 
-            getline(cin, id);
-            
-            try {
-                int itemId = stoi(id);
-                wms.enqueueSearchTask(itemId);
-            } catch (const std::exception& e) {
-                cout << "[ERROR] Invalid ID format: " << e.what() << endl;
-            }
-        }
-
-        else if (choice == 8) {
-            wms.enqueueListTask();
-        }
-
-        else if (choice == 9) {
-            wms.processTasks();
-            if (autosave) wms.saveAll();
-        }
-
-
-
-        /*==========================================
-                    RECEIPT GENERATION
-        ===========================================*/
-         else if (choice == 11) {
-            Receipt receipt;
-            while (true) {
-                cout << "Enter Item ID to add to receipt (or 'done' to finish): ";
-                string input;
-                getline(cin, input);
-                if (input == "done") break;
-
-                int itemId;
-                try {
-                    itemId = stoi(input);
-                } catch (...) {
-                    cout << "Invalid ID.\n";
-                    continue;
-                }
-
-                Item* item = wms.searchItemInInventory(itemId);
-                if (!item) {
-                    cout << "Item not found.\n";
-                    continue;
-                }
-
-                cout << "Enter quantity to add: ";
-                int quantity;
-                cin >> quantity; clearInput();
-
-                if (quantity > item->getQuantity()) {
-                    cout << "Not enough stock available.\n";
-                    break;
-                }
-
-                receipt.addItem(*item, quantity);
-                item->changeQuantity(-quantity);
-                cout << "Added to receipt.\n";     
-            }
- 
-            receipt.print();
-            receipt.saveToFile("receipt.csv");
-            cout << "Receipt saved to 'receipt.csv'.\n";
-            break;
-        }
-
-
-
-        /*==========================================
-                     SYSTEM CONTROL
-        ===========================================*/
-        else if (choice == 10) {
-            autosave = !autosave;
-            cout << "[AUTO-SAVE] : " << (autosave ? "Enabled" : "Disabled") << endl;
-        }
-
-        else if (choice == 11) {
+        if (command == "exit" || command == "quit") {
             cout << "\nQueue may still contain pending tasks!\n";
             cout << "Process them first? (y/n): ";
-
-            char c; cin >> c;
-            if (c == 'y' || c == 'Y') wms.processTasks();
-
+            string response;
+            getline(cin, response);
+            if (response == "y" || response == "Y") wms.processTasks();
             wms.saveAll();
             cout << "\nSaved. Shutting down...\n";
             break;
         }
-
-        else cout << "\n[ERROR] Invalid selection.\n";
+        else if (command == "help") {
+            OutputFormatter::printHelp();
+        }
+        else if (command == "add") {
+            if (args.size() < 5) {
+                OutputFormatter::printError("Usage: add <id> <name> <quantity> <location>");
+                continue;
+            }
+            try {
+                int id = stoi(args[1]);
+                string name = args[2];
+                int quantity = stoi(args[3]);
+                string location = args[4];
+                if (wms.addItem(id, name, quantity, location)) {
+                    OutputFormatter::printSuccess("Item added successfully");
+                    if (autosave) wms.saveAll();
+                } else {
+                    OutputFormatter::printError("Failed to add item (ID may already exist)");
+                }
+            } catch (const invalid_argument&) {
+                OutputFormatter::printError("Invalid numeric input for ID or quantity");
+            }
+        }
+        else if (command == "remove") {
+            if (args.size() < 2) {
+                OutputFormatter::printError("Usage: remove <id>");
+                continue;
+            }
+            try {
+                int id = stoi(args[1]);
+                if (wms.removeItem(id)) {
+                    OutputFormatter::printSuccess("Item removed successfully");
+                    if (autosave) wms.saveAll();
+                } else {
+                    OutputFormatter::printError("Item not found");
+                }
+            } catch (const invalid_argument&) {
+                OutputFormatter::printError("Invalid numeric input for ID");
+            }
+        }
+        else if (command == "find") {
+            if (args.size() < 2) {
+                OutputFormatter::printError("Usage: find <id>");
+                continue;
+            }
+            try {
+                int id = stoi(args[1]);
+                Item* item = wms.searchItemInInventory(id);
+                if (item) {
+                    OutputFormatter::printInfo("Item found:");
+                    printItem(*item);
+                } else {
+                    OutputFormatter::printError("Item not found");
+                }
+            } catch (const invalid_argument&) {
+                OutputFormatter::printError("Invalid numeric input for ID");
+            }
+        }
+        else if (command == "list") {
+            wms.listInventoryItems();
+        }
+        else if (command == "queue") {
+            if (args.size() < 2) {
+                OutputFormatter::printError("Usage: queue <add|remove> [args...]");
+                continue;
+            }
+            string op = args[1];
+            if (op == "add") {
+                if (args.size() < 6) {
+                    OutputFormatter::printError("Usage: queue add <id> <name> <quantity> <location>");
+                    continue;
+                }
+                try {
+                    int id = stoi(args[2]);
+                    string name = args[3];
+                    int quantity = stoi(args[4]);
+                    string location = args[5];
+                    wms.enqueueAddTask(id, name, quantity, location);
+                    OutputFormatter::printSuccess("Add operation queued");
+                } catch (const invalid_argument&) {
+                    OutputFormatter::printError("Invalid numeric input for ID or quantity");
+                }
+            }
+            else if (op == "remove") {
+                if (args.size() < 3) {
+                    OutputFormatter::printError("Usage: queue remove <id>");
+                    continue;
+                }
+                try {
+                    int id = stoi(args[2]);
+                    wms.enqueueRemoveTask(id);
+                    OutputFormatter::printSuccess("Remove operation queued");
+                } catch (const invalid_argument&) {
+                    OutputFormatter::printError("Invalid numeric input for ID");
+                }
+            }
+            else {
+                OutputFormatter::printError("Invalid queue operation: " + op);
+            }
+        }
+        else if (command == "process") {
+            wms.processTasks();
+            OutputFormatter::printSuccess("Tasks processed");
+            if (autosave) wms.saveAll();
+        }
+        else if (command == "save") {
+            wms.saveAll();
+            OutputFormatter::printSuccess("Data saved");
+        }
+        else if (command == "autosave") {
+            autosave = !autosave;
+            cout << "[AUTO-SAVE] : " << (autosave ? "Enabled" : "Disabled") << endl;
+        }
+        else {
+            OutputFormatter::printError("Unknown command: " + command);
+            OutputFormatter::printInfo("Type 'help' for available commands");
+        }
     }
 
     return 0;
