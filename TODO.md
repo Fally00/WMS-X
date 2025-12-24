@@ -1,7 +1,7 @@
 # TODO: WMS-Cpp Codebase Improvements
 
-- [ ] improve and fix receipt system 
-- [ ] fix and improve queue system
+- [ ] improve and fix receipt system     --> TOP PIRIOTY
+- [ ] fix and improve queue system       --> SECOND PIRIOTY
 - [ ] detect faults in cli and output for future error handling
 - [ ] add smth useful to make the system better 
 
