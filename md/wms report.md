@@ -34,6 +34,9 @@ This document provides a comprehensive analysis of each file in the WMS-Cpp proj
 - Add input sanitization for all user inputs
 - Implement proper error recovery mechanisms
 
+
+### aproach : i will seperate each commands into new folder command and make logic simple for the main file
+
 ---
 
 ## 2. cli.h / cli.cpp
