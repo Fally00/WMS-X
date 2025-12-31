@@ -6,6 +6,8 @@
 - [ ] add smth useful to make the system better 
 - [ ] Turing it into real app 
 - [ ] Applying fixes from the report 
+        -main file is [done]
+        -cli.cpp is [next]
 
 
 ## Step 1: Fix Errors

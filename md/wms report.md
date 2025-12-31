@@ -40,6 +40,19 @@ This document provides a comprehensive analysis of each file in the WMS-Cpp proj
 
                                                [DONE]
 
+### Whats done is 
+
+main.cpp no longer have:
+
+duplicated logic
+
+broken parsing
+
+unsafe stoi
+
+spaghetti command dispatch
+
+thanks to the seperation of logic and functions and keeping main minimal 
 
 ---
 
