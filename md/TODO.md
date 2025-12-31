@@ -5,6 +5,8 @@
 - [ ] detect faults in cli and output for future error handling
 - [ ] add smth useful to make the system better 
 - [ ] Turing it into real app 
+- [ ] Applying fixes from the report 
+
 
 ## Step 1: Fix Errors
 - [x] Fix typo "intializeStorage" to "initializeStorage" in Storage.h and Storage.cpp
