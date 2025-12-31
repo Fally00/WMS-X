@@ -37,6 +37,10 @@ This document provides a comprehensive analysis of each file in the WMS-Cpp proj
 
 ### aproach : i will seperate each commands into new folder command and make logic simple for the main file
 
+
+                                               [DONE]
+
+
 ---
 
 ## 2. cli.h / cli.cpp
