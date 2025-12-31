@@ -1,40 +1,63 @@
-#pragma once // using pragma once to avoid multiple inclusions
+#pragma once
 #include <string>
-#include <stdexcept>
+#include <vector>
+#include <ctime>
 
 class Item {
-//defining class Item 
+
+// Data members
 private:
     int id;
     std::string name;
     int quantity;
     std::string location;
 
-public:
-    // Constructor
-    Item(int id, std::string name, int qty, std::string loc)
-        : id(id), name(std::move(name)), location(std::move(loc)) {
-        setQuantity(qty);
-    }
+    double price;
+    std::string currency;
+    std::string unit;
+    std::string category;
 
-    // Factory for CSV
+    std::time_t createdAt;
+    std::time_t modifiedAt;
+    std::vector<std::string> auditLog;
+
+    void touch();
+    void validate() const;
+    static bool isValidLocation(const std::string& loc);
+
+// Public interface
+public:
+    // Constructors
+    Item(int id,
+         const std::string& name,
+         int qty,
+         const std::string& loc,
+         double price = 0.0,
+         const std::string& currency = "USD",
+         const std::string& unit = "pcs",
+         const std::string& category = "general");
+         
+    // CSV Serialization / Deserialization
     static Item fromCSV(const std::string& line);
     std::string toCSV() const;
+    std::string toJSON() const;
 
-    // Getters and Setters
-    int getId() const { return id; }
-    const std::string& getName() const { return name; }
-    
-    // Modified method name
+    // Getters and Setters for data members
+    int getId() const;
+    const std::string& getName() const;
+    int getQuantity() const;
+    const std::string& getLocation() const;
+    double getPrice() const;
+    const std::string& getCurrency() const;
+    const std::string& getUnit() const;
+    const std::string& getCategory() const;
+    std::time_t getCreatedAt() const;
+    std::time_t getModifiedAt() const;
     void changeQuantity(int delta);
-    int getQuantity() const { return quantity; }
-    void setQuantity(int q) {
-        if (q < 0) throw std::invalid_argument("Negative quantity");
-        quantity = q;
-    }
-    // New getter and setter for location
-    const std::string& getLocation() const { return location; }
-    void setLocation(const std::string& loc) { location = loc; }
+    void setLocation(const std::string& loc);
+
+    bool operator==(const Item& o) const;
+    bool operator<(const Item& o) const;
 };
-//Free function to print item details (solving inventory displaying issue)
+// Print Item Details (Improved)
 void printItem(const Item& item);

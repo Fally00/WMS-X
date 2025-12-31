@@ -17,14 +17,15 @@ void printItem(const Item& item) {
     OutputFormatter::printTable(headers, rows);
 }
 
-// Modified method name
+// Constructor for item class quantity validation
 void Item::changeQuantity(int delta) {
-    int newQty = quantity + delta;
-    if (newQty < 0) {
-        throw std::invalid_argument("Insufficient stock");
-    }
-    setQuantity(newQty);    /// Update quantity using setter
+    int old = quantity;
+    quantity += delta;
+    if (quantity < 0) throw std::invalid_argument("Insufficient stock");
+    auditLog.push_back("Qty " + std::to_string(old) + " -> " + std::to_string(quantity));
+    touch();
 }
+
 
 // CSV Serialization
 std::string Item::toCSV() const {

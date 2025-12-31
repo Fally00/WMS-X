@@ -7,7 +7,8 @@
 - [ ] Turing it into real app 
 - [ ] Applying fixes from the report 
         -main file is [done]
-        -cli.cpp is [next]
+        -cli.cpp is [done]
+        -item files [next]
 
 
 ## Step 1: Fix Errors
