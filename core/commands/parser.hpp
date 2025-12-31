@@ -2,6 +2,7 @@
 #include <vector>
 #include <string>
 
+// Simple tokenizer for command line input
 inline std::vector<std::string> tokenize(const std::string& line) {
     std::vector<std::string> args;
     std::string cur;

@@ -2,8 +2,10 @@
 #include "core/commands/command.hpp"
 #include "core/commands/safetyparse.hpp"
 
+// Command to add an item
 class AddCommand : public ICommand {
 public:
+    // Execute the add command
     Result<void> execute(CommandContext& ctx, const std::vector<std::string>& a) override {
         if (a.size() < 4)
             return Result<void>::fail("Usage: add <id> <name> <qty> <loc>");
