@@ -88,7 +88,7 @@ aproach ; i will just redo the whole cli system the first version had conflicts 
                                                 [DONE]
 ```
 ---
-
+```
 ## 3. Item.h / Item.cpp
 
 ### Weaknesses:
@@ -120,6 +120,15 @@ aproach ; i will just redo the whole cli system the first version had conflicts 
 - Add category/type field for better organization
 - Implement proper error messages
 
+
+
+aproach was i will refactor the weakness with keeping the old with adding more data members
+
+                                                [DONE]
+
+
+
+```
 ---
 
 ## 4. Inventory.h / Inventory.cpp
