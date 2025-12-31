@@ -130,7 +130,7 @@ aproach was i will refactor the weakness with keeping the old with adding more d
 
 ```
 ---
-
+```
 ## 4. Inventory.h / Inventory.cpp
 
 ### Weaknesses:
@@ -167,6 +167,26 @@ aproach was i will refactor the weakness with keeping the old with adding more d
 - Add search by name (partial/fuzzy matching)
 - Implement inventory reports
 
+what has been done
+Use std::unordered_map<int, Item> for O(1) lookups
+
+Enforce duplicate prevention on add
+
+Add filtered views and sorted copies without destroying the original vector
+
+Add pagination support
+
+Add statistics methods (total quantity, items per location, etc.)
+
+Keep CSV import/export safe with headers
+
+Add batch add/remove
+
+Maintain API so your main WMS code still works
+
+
+
+```
 ---
 
 ## 5. Storage.h / Storage.cpp
