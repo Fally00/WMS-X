@@ -8,7 +8,7 @@
 - [ ] Applying fixes from the report 
         -main file is [done]
         -cli.cpp is [done]
-        -item files [next]
+        -item files [done]
 
 
 ## Step 1: Fix Errors
