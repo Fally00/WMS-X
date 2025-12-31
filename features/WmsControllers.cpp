@@ -1,8 +1,8 @@
-#include "WmsControllers.h"
-#include "Inventory.h"
-#include "Storage.h"
-#include "Receipt.h"
-#include "Item.h"
+#include "core/WmsControllers.h"
+#include "core/Inventory.h"
+#include "core/Storage.h"
+#include "core/Receipt.h"
+#include "core/Item.h"
 #include <iostream>
 #include <sstream>
 #include <iomanip>

@@ -1,12 +1,12 @@
 #pragma once
-#include "Inventory.h"
-#include "Storage.h"
-#include "Receipt.h"
-#include <string>
+#include "core/Inventory.h"
+#include "core/Storage.h"
+#include "core/Receipt.h"
 #include <queue>
+#include <string>
+#include <vector>
 #include <functional>
 #include <unordered_map>
-#include <vector>
 
 // Task structure for better type safety
 struct Task {

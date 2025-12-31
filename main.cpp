@@ -1,10 +1,10 @@
-#include "WmsControllers.h"
-#include "Inventory.h"
-#include "Storage.h"
-#include "Item.h"
-#include "Receipt.h"
-#include "cli.h"
-#include "output.h"
+#include "core/WmsControllers.h"
+#include "core/Inventory.h"
+#include "core/Storage.h"
+#include "core/Item.h"
+#include "core/Receipt.h"
+#include "core/cli.h"
+#include "core/output.h"
 #include <iostream>
 #include <string>
 #include <vector>

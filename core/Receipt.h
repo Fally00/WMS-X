@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
-#include "Item.h"
+#include "core/Item.h"
 
 
 // Structure to hold item details in the receipt
