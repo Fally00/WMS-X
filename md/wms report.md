@@ -55,7 +55,7 @@ spaghetti command dispatch
 thanks to the seperation of logic and functions and keeping main minimal 
 
 ---
-
+```
 ## 2. cli.h / cli.cpp
 
 ### Weaknesses:
@@ -83,6 +83,10 @@ thanks to the seperation of logic and functions and keeping main minimal
 - Normalize command names (case-insensitive matching)
 - Add better error messages with suggestions
 
+aproach ; i will just redo the whole cli system the first version had conflicts with interactive system
+
+                                                [DONE]
+```
 ---
 
 ## 3. Item.h / Item.cpp

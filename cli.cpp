@@ -1,89 +1,64 @@
 #include "core/cli.h"
-#include <iostream>
 #include <algorithm>
+#include <iostream>
 
-/*==========================================
-    CLI ARGUMENT PARSER
-============================================*/
-
-// ─────────────────────────────────────────────
-// Constructor
-// ─────────────────────────────────────────────
-CLIParser::CLIParser(int argc, char* argv[]) : argc_(argc), argv_(argv) {
-    for (int i = 1; i < argc; ++i) {
-        args_.push_back(argv[i]);
-    }
+// Helper function to convert string to lowercase
+static std::string lower(std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+    return s;
 }
 
-// ─────────────────────────────────────────────
-// Parse command line arguments
-// ─────────────────────────────────────────────
+// Constructor
+CLIParser::CLIParser(int argc, char* argv[]) : argc_(argc), argv_(argv) {}
+
+// Simple CLI parser implementation
 CLIOptions CLIParser::parse() {
-    CLIOptions options;
+    CLIOptions opt;
 
-    // Check for help and version first
-    for (const auto& arg : args_) {
-        if (arg == "--help" || arg == "-h") {
-            options.showHelp = true;
-            return options;
-        }
-        if (arg == "--version" || arg == "-v") {
-            options.showVersion = true;
-            return options;
-        }
+    if (argc_ < 2) {
+        opt.interactive = true;
+        return opt;
     }
-
-    if (args_.empty()) {
-        options.interactive = true;
-        return options;
-    }
-
+    
     // First argument is the command
-    options.command = args_[0];
+    opt.command = lower(argv_[1]);
 
-    // Check if command contains a subcommand (e.g., "queue-add")
-    size_t dashPos = options.command.find('-');
-    if (dashPos != std::string::npos) {
-        options.subcommand = options.command.substr(dashPos + 1);
-        options.command = options.command.substr(0, dashPos);
-    }
+    for (int i = 2; i < argc_; i++) {
+        std::string arg = argv_[i];
 
-    // Parse flags and positional arguments
-    for (size_t i = 1; i < args_.size(); ++i) {
-        const std::string& arg = args_[i];
+        if (arg == "--help" || arg == "-h") {
+            opt.showHelp = true;
+            return opt;
+        }
 
-        if (arg.substr(0, 2) == "--") {
-            // Long flag
-            size_t equalsPos = arg.find('=');
-            if (equalsPos != std::string::npos) {
-                std::string key = arg.substr(2, equalsPos - 2);
-                std::string value = arg.substr(equalsPos + 1);
-                options.flags[key] = value;
-            } else {
-                std::string key = arg.substr(2);
-                if (i + 1 < args_.size() && args_[i + 1][0] != '-') {
-                    options.flags[key] = args_[i + 1];
-                    ++i;
-                } else {
-                    options.flags[key] = "true";
-                }
+        if (arg == "--version" || arg == "-v") {
+            opt.showVersion = true;
+            return opt;
+        }
+
+        // --key=value
+        if (arg.rfind("--", 0) == 0) {
+            auto eq = arg.find('=');
+            if (eq != std::string::npos) {
+                std::string key = lower(arg.substr(2, eq - 2));
+                std::string val = arg.substr(eq + 1);
+                opt.namedArgs[key] = val;
             }
-        } else if (arg[0] == '-') {
-            // Short flag
-            if (arg.size() == 2) {
-                char flag = arg[1];
-                if (i + 1 < args_.size() && args_[i + 1][0] != '-') {
-                    options.flags[std::string(1, flag)] = args_[i + 1];
-                    ++i;
-                } else {
-                    options.flags[std::string(1, flag)] = "true";
-                }
+            else {
+                opt.longFlags[lower(arg.substr(2))] = true;
             }
-        } else {
-            // Positional argument
-            options.positionalArgs.push_back(arg);
+        }
+
+        // -abc  => -a -b -c
+        else if (arg.rfind("-", 0) == 0) {
+            for (size_t j = 1; j < arg.size(); j++)
+                opt.shortFlags[arg[j]] = true;
+        }
+
+        else {
+            opt.positionalArgs.push_back(arg);
         }
     }
 
-    return options;
+    return opt;
 }
