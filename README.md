@@ -1,125 +1,108 @@
-## WMS‑X — Warehouse Management System in Modern C++ ##
+#  WMS-X — Warehouse Management System (C++ CLI Edition)
 
-What is WMS‑X?
+A **modular**, **high-performance** Warehouse Management System built in **modern C++17**, designed with clean architecture, real-world logistics workflows, and future scalability in mind.
 
-WMS‑X is a console‑based Warehouse Management System implemented in robust modern C++. It models real warehouse workflows like inventory tracking, receipt handling, batch tasks, and data persistence, all with a focus on clean architecture, modularity, and real‑world usability. 
-GitHub
+>  **Production-Ready Core** — Engineered to serve as a backend foundation for **CLI**, **GUI**, **REST API**, and enterprise integrations — *without refactoring business logic*.
 
-This isn’t just toy code — it’s a system redesigned from the ground up with performance, readability, and maintainability in mind.
-
-## What Changed in v1.2.0 ##
-```
-poured actual craft into this release — and it shows! This version includes:
-```
-![System showcase](assest/wms1.3.0.png)
-
-## Major Improvements ##
-
--- Redesigned architecture to make modules more independent and testable
-
--- Refactored codebase — clearer logic, better function boundaries, safer memory use
-
--- Comprehensive bug fixes across core features
-
--- Optimizations for performance and user responsiveness
-
--- More readable console UI & workflow feedback
-
--- Better layering of logic (UI ↔ core ↔ data)
-
--- Path paved for future GUI, DB, or web interface support
-
-This is not your average “hello world” example — it’s a serious inventory system with a foundation for expansion.
-```
-## Core Features ##
-
-## --> Inventory Management ##
-
---Track items, quantities, metadata and search inventory efficiently. 
-
-
-## --> Receipt System ##
---Generate, queue, and print receipts for transactions — stateful and persistent. 
-
-
-## --> Batch Processing ##
---Queue up multiple operations to run sequentially — simulating real warehouse tasks. 
-
-
-## --> Data Persistence ##
---CSV‑based storage that loads and saves inventory automatically. 
-
-
-## --> Console UI ##
---ANSI‑colored, menu‑driven UX for exploring features without digging into code.
-
-
-```
-
+![WMS CLI Preview](assets/logo.png)
 ---
-```
-## 🗂️ Project Structure
-WMS‑Cpp/
-├── src/                  # Implementation files
-│   ├── main.cpp
-│   ├── Inventory.cpp
-│   ├── Receipt.cpp
-│   ├── Storage.cpp
-│   ├── WmsControllers.cpp
-│   └── … 
-├── include/              # Public interface headers
-│   ├── Item.h
-│   ├── Inventory.h
-│   ├── Receipt.h
-│   ├── Storage.h
-│   └── …
-├── data/
-│   └── inventory_data.csv
-├── README.md
-└── build/                # Compiled output
-```
 
-*(Structure may evolve as the system grows)*
+##  Key Features
+
+| Category | Description |
+|--------|-------------|
+| - **Inventory Management** | Add, update, delete, search and list items with validation
+| - - -![WMS CLI Preview](assets/search.png)                                                                             |
+| - **Persistent Storage** | CSV-backed persistence (`inventory_data.csv`) with automatic load/save
+| - - -![WMS CLI Preview](assets/list.png)                                                                               | 
+| - **Receipt System** | Generate timestamped transaction receipts (e.g., for audits)
+| - - -![WMS CLI Preview](assets/receipt.png)                                                                            |
+| - **Command Architecture** | Extensible CLI command system — plug in new commands via registration
+| - - -![WMS CLI Preview](assets/help.png)                                                                               |
+| - **Modular Core** | Strict separation: domain models → business logic → persistence → interface                       |
+| - **CMake Build** | Cross-platform (Windows/macOS/Linux) with one-command builds                                       |
+| - **Future-Proof** | Core designed for seamless integration with Qt GUI, REST APIs (Crow/Pistache), and web dashboards |
 
 ---
 
-## 🧪 How It Works
+##  Architecture Overview
+```
+CLI  ──▶  Command System  ──▶  Controllers  ──▶  Inventory Engine
+                                 │
+                                 ├── Storage (CSV Persistence)
+                                 ├── Receipt Engine
+                                 └── Domain Models (Item, Inventory)
 
-How It Works
+```
 
-1- Interactive Menu — The user selects actions from a menu.
-
-2- Controller Dispatch — Controller modules route input to appropriate logic.
-
-3- Logic Modules — Inventory, receipts, and batch queues process actions.
-
-4- Persistence — CSV files auto‑save changes between runs.
-
---> This separation keeps code **testable, readable, and maintainable**.
+ **Separation of Concerns**:  
+- **Domain** (`Item`, `Inventory`) encapsulates business rules  
+- **Storage** handles data persistence *without* leaking format details upward  
+- **Controllers** orchestrate workflows — ideal for testing & reuse  
 
 ---
 
-## 🛠️ Build & Run
+##  Project Structure
 
-### Requirements
-- C++17 or newer
-- GCC / Clang / MSVC
-- Terminal with ANSI color support (recommended)
-
-### Compile
 ```bash
-g++ -o wms-x  main.cpp cli.cpp output.cpp Inventory.cpp Item.cpp Receipt.cpp Storage.cpp WmsControllers.cpp  
+WMS-Cpp/
+│
+├── core/
+│   ├── Inventory.h / .cpp        # Inventory container & logic
+│   ├── Item.h / .cpp             # Inventory item model
+│   ├── Storage.h / .cpp          # CSV persistence engine
+│   ├── Receipt.h / .cpp          # Transaction receipts
+│   ├── WmsControllers.h / .cpp   # Business logic controllers
+│   ├── command.hpp               # Extensible command system
+│   └── main.cpp                  # Core application entry
+│
+├── cli.cpp                       # CLI interface layer
+├── inventory_data.csv            # Persistent inventory file
+└── README.md
 ```
 
-**Current Status**
+---
+
+## Requirements
 ```
-Component	Status
-CLI                 -->   🟡 Functional
-Receipt generation  -->	  🟡 Functional
-CSV persistence	    -->   🟡 Functional
-Batch queue	        -->   🟠 Improved
-Inventory system	-->   ✅ Stable
-Input validation	-->   ✅ done
-Unit tests	        -->   🧪 Planned
-Database support    -->   🔜 Future
+   Tool	                              Version
+C++ Compiler	               GCC / Clang / MSVC (C++17+)
+CMake	                       3.10+
+Git	                           Latest
 ```
+---
+
+## CLI Usage
+```
+Command	        Action
+add	Add     new inventory item
+list	    Display all items
+remove	    Delete item
+update	    Modify item details
+receipt	    Generate transaction receipt
+exit	    Close application
+```
+## Building process using MSYS
+```
+g++ -std=c++17 -O0 -g -Wall -Wextra -Icore core\\*.cpp cli.cpp -o wms.exe
+```
+**same command will work if the same structure is followed as above**
+---
+
+## Roadmap
+```
+Phase	        Feature
+Phase 1	    CLI Core (Current)
+Phase 2	    JSON persistence + SQLite backend
+Phase 3	    Qt GUI Front-End
+Phase 4	    REST API (C++ Crow / Pistache)
+Phase 5	    Web Dashboard
+```
+
+---
+
+### Author
+**Rayan (Fally)**
+**Cybersecurity Student • Systems Engineer • Builder of unnecessarily powerful tools**
+
+---
