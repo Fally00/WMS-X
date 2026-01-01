@@ -122,7 +122,7 @@ class ReceiptCommand : public ICommand {
 public:
     Result<void> execute(CommandContext& ctx, const std::vector<std::string>& a) override {
         if (a.size() < 3)
-            return Result<void>::fail("Usage: receipt <id qty price>... [customer]");
+            return Result<void>::fail("Usage: receipt <id quantity price>... [customer]");
 
         size_t remainder = a.size() % 3;
         std::string customer;
@@ -132,7 +132,7 @@ public:
             customer = a.back();
             itemsEnd -= 1;
         } else if (remainder != 0) {
-            return Result<void>::fail("Usage: receipt <id qty price>... [customer]");
+            return Result<void>::fail("Usage: receipt <id quantity price>... [customer]");
         }
 
         Receipt receipt;

@@ -42,7 +42,7 @@ int processLine(CommandRegistry& reg, CommandContext& ctx, const std::string& li
         return 1;
     }
 
-    OutputFormatter::printSuccess("OK");
+    OutputFormatter::printSuccess("DONE");
     return 0;
 }
 
@@ -64,19 +64,19 @@ int main(int argc, char* argv[]) {
     OutputFormatter::printInfo("Type 'help' for commands, 'exit' to quit.");
 
     const std::vector<std::pair<std::string, std::string>> commands = {
-        {"add <id> <name> <qty> <loc>", "Add new item"},
-        {"remove <id>", "Remove item by id"},
-        {"list [page] [pageSize]", "List items (paged)"},
+        {"add <id> <name> <quantity> <location>", "                                             Add new item"},
+        {"remove <id>", "                                                                  Remove item by id"},
+        {"list [page] [pageSize]", "                                                      List items (paged)"},
         {"search <id>", "Find item by id"},
-        {"queue <COMMAND...>", "Queue a task (ADD/REMOVE/LIST/SEARCH)"},
-        {"runq [limit]", "Process queued tasks"},
-        {"receipt <id qty price>... [customer]", "Generate & save a receipt (multiple lines)"},
-        {"help", "Show this help"},
-        {"exit", "Quit WMS"},
-        {"version/-v/--version", "Show version"},
-        {"--help/-h", "Show CLI help (non-interactive)"},
-        {"--no-color", "Disable colored output"},
-        {"-a/--autosave", "Save after each command"},
+        {"queue <COMMAND...>", "                                       Queue a task (ADD/REMOVE/LIST/SEARCH)"},
+        {"runq [limit]", "                                                              Process queued tasks"},
+        {"receipt <id quantity price>... [customer]", "           Generate & save a receipt (multiple lines)"},
+        {"help", "                                                                            Show this help"},
+        {"exit", "                                                                                  Quit WMS"},
+        {"version/-v/--version", "                                                              Show version"},
+        {"--help/-h", "                                                                       Show CLI help "},
+        {"--no-color", "                                                              Disable colored output"},
+        {"-a/--autosave", "                                                          Save after each command"},
     };
 
     if (opt.showHelp) {
@@ -133,7 +133,7 @@ int main(int argc, char* argv[]) {
             return 1;
         }
 
-        OutputFormatter::printSuccess("OK");
+        OutputFormatter::printSuccess("DONE");
         return 0;
     }
 
