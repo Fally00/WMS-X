@@ -5,10 +5,7 @@ A **modular**, **high-performance** Warehouse Management System built in **moder
 
 > **Production-Ready Core** — Engineered to serve as a backend foundation for **CLI**, **GUI**, **REST API**, and enterprise integrations — *without refactoring business logic*.
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/Fally00/WMS-X/main/assets/logo.png" width="500">
-</p>
-
+![WMS CLI Preview](assets/logo.png)
 ---
 
 ##  Key Features
