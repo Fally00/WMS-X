@@ -122,38 +122,48 @@ class ReceiptCommand : public ICommand {
 public:
     Result<void> execute(CommandContext& ctx, const std::vector<std::string>& a) override {
         if (a.size() < 3)
-            return Result<void>::fail("Usage: receipt <id> <qty> <price> [customer]");
+            return Result<void>::fail("Usage: receipt <id qty price>... [customer]");
 
-        auto id = safetyparse(a[0]);
-        if (!id.ok) return Result<void>::fail(id.error);
+        size_t remainder = a.size() % 3;
+        std::string customer;
+        size_t itemsEnd = a.size();
 
-        int qty = 0;
-        double price = 0.0;
-        try {
-            qty = std::stoi(a[1]);
-        } catch (const std::exception&) {
-            return Result<void>::fail("Quantity must be an integer");
+        if (remainder == 1) {
+            customer = a.back();
+            itemsEnd -= 1;
+        } else if (remainder != 0) {
+            return Result<void>::fail("Usage: receipt <id qty price>... [customer]");
         }
-        try {
-            price = std::stod(a[2]);
-        } catch (const std::exception&) {
-            return Result<void>::fail("Price must be a number");
-        }
-
-        if (qty <= 0)
-            return Result<void>::fail("Quantity must be > 0");
-        if (price < 0)
-            return Result<void>::fail("Price cannot be negative");
-
-        auto item = ctx.wms.getItem(id.value);
-        if (!item.has_value())
-            return Result<void>::fail("Item not found");
 
         Receipt receipt;
-        if (a.size() >= 4) receipt.setCustomer(a[3]);
+        if (!customer.empty()) receipt.setCustomer(customer);
+
+        for (size_t i = 0; i < itemsEnd; i += 3) {
+            auto id = safetyparse(a[i]);
+            if (!id.ok) return Result<void>::fail(id.error);
+
+            int qty = 0;
+            double price = 0.0;
+            try { qty = std::stoi(a[i + 1]); }
+            catch (const std::exception&) { return Result<void>::fail("Quantity must be an integer"); }
+
+            try { price = std::stod(a[i + 2]); }
+            catch (const std::exception&) { return Result<void>::fail("Price must be a number"); }
+
+            if (qty <= 0) return Result<void>::fail("Quantity must be > 0");
+            if (price < 0) return Result<void>::fail("Price cannot be negative");
+
+            auto item = ctx.wms.getItem(id.value);
+            if (!item.has_value()) return Result<void>::fail("Item not found");
+
+            try {
+                receipt.addItem(item.value(), qty, price);
+            } catch (const std::exception& e) {
+                return Result<void>::fail(std::string("Failed to add item: ") + e.what());
+            }
+        }
 
         try {
-            receipt.addItem(item.value(), qty, price);
             receipt.print();
             receipt.saveToFile();
         } catch (const std::exception& e) {

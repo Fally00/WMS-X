@@ -70,7 +70,7 @@ int main(int argc, char* argv[]) {
         {"search <id>", "Find item by id"},
         {"queue <COMMAND...>", "Queue a task (ADD/REMOVE/LIST/SEARCH)"},
         {"runq [limit]", "Process queued tasks"},
-        {"receipt <id> <qty> <price> [customer]", "Generate & save a receipt"},
+        {"receipt <id qty price>... [customer]", "Generate & save a receipt (multiple lines)"},
         {"help", "Show this help"},
         {"exit", "Quit WMS"},
         {"version/-v/--version", "Show version"},
