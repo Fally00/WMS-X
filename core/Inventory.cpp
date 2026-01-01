@@ -1,5 +1,5 @@
-#include "core/Inventory.h"
-#include "core/output.h"
+#include "Inventory.h"
+#include "output.h"
 #include <algorithm>
 #include <iostream>
 #include <sstream>

@@ -1,5 +1,5 @@
 #pragma once
-#include "core/commands/results.hpp"
+#include "core/results.hpp"
 #include <string>
 
 // Safely parse integer from string
@@ -9,7 +9,7 @@ inline Result<int> safetyparse(const std::string& s) {
         int v = std::stoi(s, &i);
         if (i != s.size()) return Result<int>::fail("Invalid number: " + s);
         return Result<int>::success(v);
-    } catch (...) {             // Catch all parsing errors
-        return Result<int>::fail("Invalid number: " + s);   // Return failure
+    } catch (...) {
+        return Result<int>::fail("Invalid number: " + s);
     }
 }

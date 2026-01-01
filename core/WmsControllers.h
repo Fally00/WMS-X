@@ -1,105 +1,60 @@
 #pragma once
-#include "core/Inventory.h"
-#include "core/Storage.h"
-#include "core/Receipt.h"
-#include <queue>
-#include <string>
-#include <vector>
-#include <functional>
+#include "Inventory.h"
+#include "Storage.h"
+#include "Receipt.h"
 #include <unordered_map>
+#include <functional>
+#include <optional>
+#include <chrono>
+#include <queue>
 
-// Task structure for better type safety
+// Task priorities
+enum class TaskPriority { LOW = 0, NORMAL = 1, HIGH = 2 };
+
+// Task metadata
 struct Task {
+    std::string id;
     std::string command;
-    std::vector<std::string> parameters;
-    
-    Task(const std::string& cmd, const std::vector<std::string>& params) 
-        : command(cmd), parameters(params) {}
+    std::vector<std::string> params;
+    TaskPriority priority;
+    int retryCount = 0;
+    std::chrono::system_clock::time_point created;
+
+    bool operator<(const Task& other) const {
+        return priority < other.priority; // for priority_queue
+    }
 };
 
-/**
- * @class WmsControllers
- * @brief Main controller class for the Warehouse Management System.
- *
- * The WmsControllers class orchestrates all warehouse operations, including
- * inventory management, task queuing, and data persistence. It provides both
- * direct method calls and queued task execution for flexible operation handling.
- */
 class WmsControllers {
 private:
-    Inventory inventory; /**< The inventory management component. */
-    Storage storage; /**< The data storage component for persistence. */
-    std::queue<Task> taskQueue; /**< Queue for storing pending tasks. */
+    Inventory inventory;
+    Storage storage;
+    std::priority_queue<Task> taskQueue;
 
-    // Command mapping for better extensibility
-    std::unordered_map<std::string, std::function<bool(const std::vector<std::string>&)>> commandMap; /**< Maps command strings to handler functions. */
+    std::unordered_map<std::string,
+        std::function<bool(const Task&)>> commandRegistry;
 
-    // Helper methods
-    /**
-     * @brief Splits a string by a delimiter.
-     * @param s The string to split.
-     * @param delim The delimiter character.
-     * @return A vector of split strings.
-     */
-    std::vector<std::string> split(const std::string& s, char delim);
-
-    /**
-     * @brief Validates if a string represents a numeric value.
-     * @param str The string to validate.
-     * @return True if the string is numeric, false otherwise.
-     */
-    bool validateNumeric(const std::string& str);
+    // Helpers
+    std::string generateTaskId() const;
+    std::vector<std::string> smartSplit(const std::string& input);
+    bool isNumeric(const std::string& s);
 
     // Command handlers
-    /**
-     * @brief Handles the add item command.
-     * @param params The parameters for the add operation.
-     * @return True if successful, false otherwise.
-     */
-    bool handleAdd(const std::vector<std::string>& params);
-
-    /**
-     * @brief Handles the remove item command.
-     * @param params The parameters for the remove operation.
-     * @return True if successful, false otherwise.
-     */
-    bool handleRemove(const std::vector<std::string>& params);
-
-    /**
-     * @brief Handles the list items command.
-     * @param params The parameters for the list operation.
-     * @return True if successful, false otherwise.
-     */
-    bool handleList(const std::vector<std::string>& params);
-
-    /**
-     * @brief Handles the search item command.
-     * @param params The parameters for the search operation.
-     * @return True if successful, false otherwise.
-     */
-    bool handleSearch(const std::vector<std::string>& params);
+    bool cmdAdd(const Task& t);
+    bool cmdRemove(const Task& t);
+    bool cmdList(const Task& t);
+    bool cmdSearch(const Task& t);
 
 public:
-    explicit WmsControllers(const std::string& storageFilePath);
-
-    // Task queue management
-    void enqueueTask(const std::string& task);
-    void processTasks();
-    
-    // Direct command methods (for programmatic use)
-    void enqueueAddTask(int id, const std::string& name, int quantity, const std::string& location, bool silent = false);
-    void enqueueRemoveTask(int id, bool silent = false);
-    void enqueueListTask(bool silent = false);
-    void enqueueSearchTask(int id, bool silent = false);
+    explicit WmsControllers(const std::string& storagePath);
 
     bool initializeSystem();
     void saveAll();
 
-    // Direct methods for search and list
-    Item* searchItemInInventory(int itemId);
-    void listInventoryItems();
+    bool addItem(int id, const std::string& name, int qty, const std::string& loc);
 
-    // Direct methods for add/remove
-    bool addItem(int id, const std::string& name, int quantity, const std::string& location);
-    bool removeItem(int id);
+    void enqueueTask(const std::string& raw, TaskPriority prio = TaskPriority::NORMAL);
+    void processTasks(size_t limit = 0); // limit=0 → all
+
+    size_t queueSize() const;
 };

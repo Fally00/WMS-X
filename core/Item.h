@@ -28,6 +28,7 @@ private:
 // Public interface
 public:
     // Constructors
+    Item() = default;
     Item(int id,
          const std::string& name,
          int qty,

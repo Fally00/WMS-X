@@ -1,11 +1,11 @@
 #pragma once
-#include "core/commands/command.hpp"
-#include "core/commands/safetyparse.hpp"
+#include "core/command.hpp"
+#include "core/safetyparse.hpp"
+#include "core/commandcontext.hpp" // ← needed for CommandContext definition
 
 // Command to add an item
 class AddCommand : public ICommand {
 public:
-    // Execute the add command
     Result<void> execute(CommandContext& ctx, const std::vector<std::string>& a) override {
         if (a.size() < 4)
             return Result<void>::fail("Usage: add <id> <name> <qty> <loc>");
@@ -15,6 +15,7 @@ public:
         if (!id.ok || !qty.ok)
             return Result<void>::fail(id.ok ? qty.error : id.error);
 
+        // ✅ Now expects WmsControllers::addItem(int, string, int, string)
         if (!ctx.wms.addItem(id.value, a[1], qty.value, a[3]))
             return Result<void>::fail("Item exists");
 
