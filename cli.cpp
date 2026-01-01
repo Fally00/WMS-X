@@ -16,15 +16,7 @@ CLIParser::CLIParser(int argc, char* argv[]) : argc_(argc), argv_(argv) {}
 CLIOptions CLIParser::parse() {
     CLIOptions opt;
 
-    if (argc_ < 2) {
-        opt.interactive = true;
-        return opt;
-    }
-    
-    // First argument is the command
-    opt.command = lower(argv_[1]);
-
-    for (int i = 2; i < argc_; i++) {
+    for (int i = 1; i < argc_; i++) {
         std::string arg = argv_[i];
 
         if (arg == "--help" || arg == "-h") {
@@ -48,18 +40,20 @@ CLIOptions CLIParser::parse() {
             else {
                 opt.longFlags[lower(arg.substr(2))] = true;
             }
+            continue;
         }
 
         // -abc  => -a -b -c
-        else if (arg.rfind("-", 0) == 0) {
+        if (arg.rfind("-", 0) == 0) {
             for (size_t j = 1; j < arg.size(); j++)
                 opt.shortFlags[arg[j]] = true;
+            continue;
         }
 
-        else {
-            opt.positionalArgs.push_back(arg);
-        }
+        if (opt.command.empty()) opt.command = lower(arg);
+        else opt.positionalArgs.push_back(arg);
     }
 
+    opt.interactive = opt.command.empty();
     return opt;
 }

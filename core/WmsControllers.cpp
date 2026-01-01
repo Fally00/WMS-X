@@ -48,6 +48,20 @@ bool WmsControllers::addItem(int id, const string& name, int qty, const string& 
     return inventory.addItem(item);
 }
 
+bool WmsControllers::removeItem(int id) {
+    if (!inventory.findItem(id)) return false;
+    return inventory.removeItem(id);
+}
+
+void WmsControllers::listItems(size_t page, size_t pageSize) {
+    inventory.displayItems(page, pageSize);
+}
+
+std::optional<Item> WmsControllers::getItem(int id) {
+    if (auto* item = inventory.findItem(id)) return *item;
+    return std::nullopt;
+}
+
 // ─────────────────────────────────────────────
 // Task ID generator
 // ─────────────────────────────────────────────

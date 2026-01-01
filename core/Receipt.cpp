@@ -101,7 +101,7 @@ string Receipt::getReceiptNumber() const {
 // ─────────────────────────────────────────────
 void Receipt::print() const {
     cout << "\n=====================================\n";
-    cout << "        ARC WAREHOUSE RECEIPT\n";
+    cout << "        WMS-X WAREHOUSE RECEIPT\n";
     cout << "-------------------------------------\n";
     cout << "Receipt: " << receiptNumber << "\n";
     cout << "Date   : " << formatTime(timestamp) << "\n";

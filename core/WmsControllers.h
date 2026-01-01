@@ -52,6 +52,9 @@ public:
     void saveAll();
 
     bool addItem(int id, const std::string& name, int qty, const std::string& loc);
+    bool removeItem(int id);
+    void listItems(size_t page = 0, size_t pageSize = 10);
+    std::optional<Item> getItem(int id);
 
     void enqueueTask(const std::string& raw, TaskPriority prio = TaskPriority::NORMAL);
     void processTasks(size_t limit = 0); // limit=0 → all

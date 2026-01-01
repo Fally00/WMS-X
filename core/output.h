@@ -7,6 +7,10 @@ class OutputFormatter {
 public:
     static void initialize(bool enableColor = true, bool enableLogging = false, const std::string& logFile = "wms.log");
 
+    // VISUAL: keep startup output ASCII-only to avoid mojibake in Windows terminals.
+    static void printBanner();
+    static void printPrompt(const std::string& prompt);
+
     static void printHeader(const std::string& title);
     static void printSuccess(const std::string& msg);
     static void printError(const std::string& msg);
@@ -20,6 +24,9 @@ public:
     static void printLogo(const std::string& path = "");
     static void printVersion(const std::string& version);
     static void printHelp(const std::vector<std::pair<std::string,std::string>>& commands);
+
+    // State helpers
+    static bool isColorEnabled();
 
 private:
     static bool supportsColor();
