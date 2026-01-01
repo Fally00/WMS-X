@@ -5,17 +5,17 @@ A **modular**, **high-performance** Warehouse Management System built in **moder
 
 > **Production-Ready Core** — Engineered to serve as a backend foundation for **CLI**, **GUI**, **REST API**, and enterprise integrations — *without refactoring business logic*.
 
-![WMS CLI Preview](assets/logo.png)
+![WMS CLI Preview](assest/logo.png)
 ---
 
 ##  Key Features
 
 | Feature | Preview |
 |--------|---------|
-| **Inventory Management** — Add, update, delete, search and list items with validation | <img src="https://raw.githubusercontent.com/Fally00/WMS-X/main/assets/search.png" width="300"> |
-| **Persistent Storage** — CSV-backed persistence (`inventory_data.csv`) with automatic load/save | <img src="https://raw.githubusercontent.com/Fally00/WMS-X/main/assets/list.png" width="300"> |
-| **Receipt System** — Generate timestamped transaction receipts (e.g., for audits) | <img src="https://raw.githubusercontent.com/Fally00/WMS-X/main/assets/receipt.png" width="300"> |
-| **Command Architecture** — Extensible CLI command system via registration | <img src="https://raw.githubusercontent.com/Fally00/WMS-X/main/assets/help.png" width="300"> |
+| **Inventory Management** — Add, update, delete, search and list items with validation | <img src="https://raw.githubusercontent.com/Fally00/WMS-X/main/assest/search.png" width="300"> |
+| **Persistent Storage** — CSV-backed persistence (`inventory_data.csv`) with automatic load/save | <img src="https://raw.githubusercontent.com/Fally00/WMS-X/main/assest/list.png" width="300"> |
+| **Receipt System** — Generate timestamped transaction receipts (e.g., for audits) | <img src="https://raw.githubusercontent.com/Fally00/WMS-X/main/assest/receipt.png" width="300"> |
+| **Command Architecture** — Extensible CLI command system via registration | <img src="https://raw.githubusercontent.com/Fally00/WMS-X/main/assest/help.png" width="300"> |
 | **Modular Core** — Strict separation: domain → controllers → storage → interface |  |
 | **CMake Build** — Cross-platform Windows / Linux / macOS |  |
 | **Future-Proof** — Qt GUI, REST API, Web Dashboard ready |  |
