@@ -1,7 +1,7 @@
 #pragma once
 #include <unordered_map>
 #include <memory>
-#include "core/command.hpp"
+#include "command.hpp"
 
 class CommandRegistry {
     std::unordered_map<std::string, std::unique_ptr<ICommand>> commands;

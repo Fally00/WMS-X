@@ -16,7 +16,6 @@ private:
 
     bool validatePath(std::string& err) const;         // Validate file path
     bool createBackup(std::string& err) const;        // Create backup of data file
-    std::string computeChecksum(const std::string& data) const;
 
 public:
     

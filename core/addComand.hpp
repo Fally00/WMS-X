@@ -1,7 +1,7 @@
 #pragma once
-#include "core/command.hpp"
-#include "core/safetyparse.hpp"
-#include "core/commandcontext.hpp" // ← needed for CommandContext definition
+#include "command.hpp"
+#include "safetyparse.hpp"
+#include "CommandContext.hpp" // ← needed for CommandContext definition
 
 // Command to add an item
 class AddCommand : public ICommand {

@@ -1,5 +1,5 @@
 #pragma once
-#include "core/WmsControllers.h"
+#include "WmsControllers.h"
 #include <string>
 
 struct CommandContext {

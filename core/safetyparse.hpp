@@ -1,5 +1,5 @@
 #pragma once
-#include "core/results.hpp"
+#include "results.hpp"
 #include <string>
 
 // Safely parse integer from string

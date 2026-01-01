@@ -1,9 +1,7 @@
-#include "core/Storage.h"
-#include <openssl/sha.h>
+#include "Storage.h"
 #include <filesystem>
 #include <fstream>
 #include <sstream>
-#include <iomanip>
 
 using namespace std;
 namespace fs = std::filesystem;
@@ -36,19 +34,6 @@ bool Storage::createBackup(string& err) const {
         err = "Failed to create backup file";
         return false;
     }
-}
-
-// ─────────────────────────────────────────────
-// SHA256 checksum
-// ─────────────────────────────────────────────
-string Storage::computeChecksum(const string& data) const {
-    unsigned char hash[SHA256_DIGEST_LENGTH];
-    SHA256(reinterpret_cast<const unsigned char*>(data.c_str()), data.size(), hash);
-
-    stringstream ss;
-    for (int i = 0; i < SHA256_DIGEST_LENGTH; ++i)
-        ss << hex << setw(2) << setfill('0') << (int)hash[i];
-    return ss.str();
 }
 
 // ─────────────────────────────────────────────

@@ -40,6 +40,14 @@ void WmsControllers::saveAll() {
     storage.atomicWrite(inventory.toCSV());
 }
 
+bool WmsControllers::addItem(int id, const string& name, int qty, const string& loc) {
+    if (qty < 0) return false;
+    if (inventory.findItem(id)) return false;
+
+    Item item(id, name, qty, loc);
+    return inventory.addItem(item);
+}
+
 // ─────────────────────────────────────────────
 // Task ID generator
 // ─────────────────────────────────────────────

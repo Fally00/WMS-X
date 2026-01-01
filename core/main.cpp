@@ -6,7 +6,7 @@
 #include "parser.hpp"          // tokenize()
 #include "command.hpp"         // ICommand
 #include "addComand.hpp"      // AddCommand (note spelling!)
-#include "commandcontext.hpp"  // CommandContext
+#include "CommandContext.hpp"  // CommandContext
 
 #include <iostream>
 #include <memory>

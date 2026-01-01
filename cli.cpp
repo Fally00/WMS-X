@@ -1,5 +1,6 @@
-#include "core/cli.h"
+#include "cli.h"
 #include <algorithm>
+#include <cctype>
 #include <iostream>
 
 // Helper function to convert string to lowercase
