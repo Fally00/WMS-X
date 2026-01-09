@@ -31,13 +31,13 @@ bool WmsControllers::initializeSystem() {
 
     string e;
     auto data = storage.readAll(e);
-    if (data) inventory.fromCSV(*data);
+    if (data) inventory.fromJSON(*data);
 
     return true;
 }
 
 void WmsControllers::saveAll() {
-    storage.atomicWrite(inventory.toCSV());
+    storage.atomicWrite(inventory.toJSON());
 }
 
 bool WmsControllers::addItem(int id, const string& name, int qty, const string& loc) {

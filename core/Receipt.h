@@ -32,6 +32,10 @@ public:
     void print() const;
     void saveToFile(const std::string& directory = "receipts") const;
     static std::vector<Receipt> loadHistory(const std::string& directory = "receipts");
+    
+    // JSON Serialization
+    std::string toJSON() const;
+    static Receipt fromJSON(const std::string& jsonStr);
 
 private:
     std::string receiptNumber;

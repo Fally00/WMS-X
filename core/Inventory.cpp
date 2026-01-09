@@ -151,31 +151,82 @@ int Inventory::totalQuantity() const {
 }
 
 // -----------------------------
-// CSV
+// JSON
 // -----------------------------
-void Inventory::fromCSV(const std::string &csvData) {
-    std::stringstream ss(csvData);
-    std::string line;
-    bool firstLine = true;
-
-    while (std::getline(ss, line)) {
-        if (line.empty()) continue;
-        // Skip header
-        if (firstLine && line.find("ID") != std::string::npos) {
-            firstLine = false;
+void Inventory::fromJSON(const std::string &jsonData) {
+    if (jsonData.empty()) return;
+    
+    // Parse JSON array: [{"id":1,...}, {"id":2,...}]
+    std::string trimmed = jsonData;
+    // Remove leading/trailing whitespace
+    trimmed.erase(0, trimmed.find_first_not_of(" \t\n\r"));
+    trimmed.erase(trimmed.find_last_not_of(" \t\n\r") + 1);
+    
+    if (trimmed.empty() || trimmed[0] != '[') {
+        // Try to parse as single object
+        if (trimmed[0] == '{') {
+            addItem(Item::fromJSON(trimmed));
+        }
+        return;
+    }
+    
+    // Parse array
+    size_t pos = 1; // Skip '['
+    while (pos < trimmed.length()) {
+        // Skip whitespace
+        while (pos < trimmed.length() && (trimmed[pos] == ' ' || trimmed[pos] == '\t' || trimmed[pos] == '\n' || trimmed[pos] == '\r')) {
+            pos++;
+        }
+        
+        if (pos >= trimmed.length() || trimmed[pos] == ']') break;
+        
+        // Find object start
+        if (trimmed[pos] != '{') {
+            pos++;
             continue;
         }
-        firstLine = false;
-        addItem(Item::fromCSV(line));
+        
+        // Find matching closing brace
+        size_t objStart = pos;
+        int braceCount = 0;
+        size_t objEnd = pos;
+        
+        for (size_t i = pos; i < trimmed.length(); i++) {
+            if (trimmed[i] == '{') braceCount++;
+            else if (trimmed[i] == '}') {
+                braceCount--;
+                if (braceCount == 0) {
+                    objEnd = i;
+                    break;
+                }
+            }
+        }
+        
+        if (braceCount == 0) {
+            std::string objStr = trimmed.substr(objStart, objEnd - objStart + 1);
+            addItem(Item::fromJSON(objStr));
+            pos = objEnd + 1;
+        } else {
+            break;
+        }
+        
+        // Skip comma and whitespace
+        while (pos < trimmed.length() && (trimmed[pos] == ',' || trimmed[pos] == ' ' || trimmed[pos] == '\t' || trimmed[pos] == '\n' || trimmed[pos] == '\r')) {
+            pos++;
+        }
     }
 }
 
-std::string Inventory::toCSV() const {
+std::string Inventory::toJSON() const {
     std::stringstream ss;
-    ss << "ID,Name,Quantity,Location\n"; // header
+    ss << "[";
+    bool first = true;
     for (const auto &[id, item] : items) {
-        ss << item.toCSV() << "\n";
+        if (!first) ss << ",";
+        ss << item.toJSON();
+        first = false;
     }
+    ss << "]";
     return ss.str();
 }
 

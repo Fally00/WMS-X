@@ -34,9 +34,9 @@ public:
     std::vector<Item> sortByQuantity(bool ascending = true) const;
     std::vector<Item> sortByLocation(bool ascending = true) const;
 
-    // CSV
-    void fromCSV(const std::string &csvData);
-    std::string toCSV() const;
+    // JSON
+    void fromJSON(const std::string &jsonData);
+    std::string toJSON() const;
 
     // Stats
     size_t totalItems() const { return items.size(); }

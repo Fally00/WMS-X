@@ -38,9 +38,8 @@ public:
          const std::string& unit = "pcs",
          const std::string& category = "general");
          
-    // CSV Serialization / Deserialization
-    static Item fromCSV(const std::string& line);
-    std::string toCSV() const;
+    // JSON Serialization / Deserialization
+    static Item fromJSON(const std::string& jsonStr);
     std::string toJSON() const;
 
     // Getters and Setters for data members

@@ -2,9 +2,11 @@
 #include "output.h"
 #include <algorithm>
 #include <iostream>
+#include <iomanip>
 #include <sstream>
 #include <stdexcept>
 #include <vector>
+#include <cctype>
 using namespace std;
 
 // ─────────────────────────────────────────────
@@ -103,39 +105,147 @@ void Item::changeQuantity(int delta) {
 }
 
 
-// CSV Serialization
-std::string Item::toCSV() const {
+// JSON helper: escape string for JSON
+static std::string escapeJSON(const std::string& str) {
     std::stringstream ss;
-    ss << id << "," << name << "," << quantity << "," << location;
+    for (char c : str) {
+        switch (c) {
+            case '"': ss << "\\\""; break;
+            case '\\': ss << "\\\\"; break;
+            case '\b': ss << "\\b"; break;
+            case '\f': ss << "\\f"; break;
+            case '\n': ss << "\\n"; break;
+            case '\r': ss << "\\r"; break;
+            case '\t': ss << "\\t"; break;
+            default:
+                if (c < 0x20) {
+                    ss << "\\u" << std::hex << std::setw(4) << std::setfill('0') << (int)c;
+                } else {
+                    ss << c;
+                }
+                break;
+        }
+    }
     return ss.str();
 }
 
+// JSON helper: unescape JSON string
+static std::string unescapeJSON(const std::string& str) {
+    std::string result;
+    for (size_t i = 0; i < str.length(); ++i) {
+        if (str[i] == '\\' && i + 1 < str.length()) {
+            switch (str[i + 1]) {
+                case '"': result += '"'; i++; break;
+                case '\\': result += '\\'; i++; break;
+                case '/': result += '/'; i++; break;
+                case 'b': result += '\b'; i++; break;
+                case 'f': result += '\f'; i++; break;
+                case 'n': result += '\n'; i++; break;
+                case 'r': result += '\r'; i++; break;
+                case 't': result += '\t'; i++; break;
+                case 'u':
+                    // Simple unicode escape (basic support)
+                    if (i + 5 < str.length()) {
+                        result += '?'; // Placeholder for unicode
+                        i += 5;
+                    }
+                    break;
+                default: result += str[i]; break;
+            }
+        } else {
+            result += str[i];
+        }
+    }
+    return result;
+}
+
+// JSON Serialization
 std::string Item::toJSON() const {
-    // Minimal JSON; no escaping for now (intended for debugging).
     std::stringstream ss;
     ss << "{"
        << "\"id\":" << id << ","
-       << "\"name\":\"" << name << "\","
+       << "\"name\":\"" << escapeJSON(name) << "\","
        << "\"quantity\":" << quantity << ","
-       << "\"location\":\"" << location << "\""
+       << "\"location\":\"" << escapeJSON(location) << "\""
        << "}";
     return ss.str();
 }
 
-// CSV Deserialization
-Item Item::fromCSV(const std::string& csvLine) {
-    std::stringstream ss(csvLine);        // String stream for parsing
-    std::string token;                   // Temporary string to hold each token
-
+// JSON Deserialization
+Item Item::fromJSON(const std::string& jsonStr) {
     int id = 0;
     std::string name;
     int quantity = 0;
     std::string location;
 
-    if (getline(ss, token, ',')) id = stoi(token);
-    if (getline(ss, token, ',')) name = token;
-    if (getline(ss, token, ',')) quantity = stoi(token);
-    if (getline(ss, token, ',')) location = token;
+    // Simple JSON parser - find key-value pairs
+    size_t pos = 0;
+    while (pos < jsonStr.length()) {
+        // Find key
+        size_t keyStart = jsonStr.find('"', pos);
+        if (keyStart == std::string::npos) break;
+        size_t keyEnd = jsonStr.find('"', keyStart + 1);
+        if (keyEnd == std::string::npos) break;
+        std::string key = jsonStr.substr(keyStart + 1, keyEnd - keyStart - 1);
+
+        // Find colon
+        size_t colonPos = jsonStr.find(':', keyEnd);
+        if (colonPos == std::string::npos) break;
+
+        // Find value
+        size_t valueStart = colonPos + 1;
+        while (valueStart < jsonStr.length() && (jsonStr[valueStart] == ' ' || jsonStr[valueStart] == '\t')) {
+            valueStart++;
+        }
+
+        if (valueStart >= jsonStr.length()) break;
+
+        if (jsonStr[valueStart] == '"') {
+            // String value
+            size_t valueEnd = valueStart + 1;
+            bool escaped = false;
+            while (valueEnd < jsonStr.length()) {
+                if (escaped) {
+                    escaped = false;
+                    valueEnd++;
+                    continue;
+                }
+                if (jsonStr[valueEnd] == '\\') {
+                    escaped = true;
+                    valueEnd++;
+                    continue;
+                }
+                if (jsonStr[valueEnd] == '"') {
+                    break;
+                }
+                valueEnd++;
+            }
+            std::string value = unescapeJSON(jsonStr.substr(valueStart + 1, valueEnd - valueStart - 1));
+            
+            if (key == "name") name = value;
+            else if (key == "location") location = value;
+            
+            pos = valueEnd + 1;
+        } else {
+            // Numeric value
+            size_t valueEnd = valueStart;
+            while (valueEnd < jsonStr.length() && 
+                   (isdigit(jsonStr[valueEnd]) || jsonStr[valueEnd] == '-' || jsonStr[valueEnd] == '+')) {
+                valueEnd++;
+            }
+            int value = std::stoi(jsonStr.substr(valueStart, valueEnd - valueStart));
+            
+            if (key == "id") id = value;
+            else if (key == "quantity") quantity = value;
+            
+            pos = valueEnd;
+        }
+
+        // Skip comma and whitespace
+        while (pos < jsonStr.length() && (jsonStr[pos] == ',' || jsonStr[pos] == ' ' || jsonStr[pos] == '\t')) {
+            pos++;
+        }
+    }
 
     return Item(id, name, quantity, location);
 }

@@ -13,7 +13,7 @@ A **modular**, **high-performance** Warehouse Management System built in **moder
 | Feature | Preview |
 |--------|---------|
 | **Inventory Management** — Add, update, delete, search and list items with validation | <img src="https://raw.githubusercontent.com/Fally00/WMS-X/main/assest/search.png" width="300"> |
-| **Persistent Storage** — CSV-backed persistence (`inventory_data.csv`) with automatic load/save | <img src="https://raw.githubusercontent.com/Fally00/WMS-X/main/assest/list.png" width="300"> |
+| **Persistent Storage** — JSON-backed persistence (`inventory_data.json`) with automatic load/save | <img src="https://raw.githubusercontent.com/Fally00/WMS-X/main/assest/list.png" width="300"> |
 | **Receipt System** — Generate timestamped transaction receipts (e.g., for audits) | <img src="https://raw.githubusercontent.com/Fally00/WMS-X/main/assest/receipt.png" width="300"> |
 | **Command Architecture** — Extensible CLI command system via registration | <img src="https://raw.githubusercontent.com/Fally00/WMS-X/main/assest/help.png" width="300"> |
 | **Modular Core** — Strict separation: domain → controllers → storage → interface |  |
@@ -27,7 +27,7 @@ A **modular**, **high-performance** Warehouse Management System built in **moder
 ```
 CLI  ──▶  Command System  ──▶  Controllers  ──▶  Inventory Engine
                                  │
-                                 ├── Storage (CSV Persistence)
+                                 ├── Storage (JSON Persistence)
                                  ├── Receipt Engine
                                  └── Domain Models (Item, Inventory)
 ```
@@ -70,7 +70,7 @@ g++ -std=c++17 -O0 -g -Wall -Wextra -Icore core/*.cpp cli.cpp -o wms.exe
 | Phase | Feature |
 |------|--------|
 | Phase 1 | CLI Core (Current) |
-| Phase 2 | JSON persistence + SQLite backend |
+| Phase 2 | SQLite backend (JSON persistence implemented) |
 | Phase 3 | Qt GUI Front-End |
 | Phase 4 | REST API (Crow / Pistache) |
 | Phase 5 | Web Dashboard |

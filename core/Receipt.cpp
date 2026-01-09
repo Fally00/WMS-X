@@ -5,6 +5,8 @@
 #include <iomanip>
 #include <filesystem>
 #include <random>
+#include <cctype>
+#include <algorithm>
 
 using namespace std;
 
@@ -131,27 +133,330 @@ void Receipt::print() const {
 }
 
 // ─────────────────────────────────────────────
+// JSON Helpers 
+// ─────────────────────────────────────────────
+static string escapeJSON(const string& str) {
+    stringstream ss;
+    for (char c : str) {
+        switch (c) {
+            case '"': ss << "\\\""; break;
+            case '\\': ss << "\\\\"; break;
+            case '\b': ss << "\\b"; break;
+            case '\f': ss << "\\f"; break;
+            case '\n': ss << "\\n"; break;
+            case '\r': ss << "\\r"; break;
+            case '\t': ss << "\\t"; break;
+            default:
+                if (c < 0x20) {
+                    ss << "\\u" << hex << setw(4) << setfill('0') << (int)c;
+                } else {
+                    ss << c;
+                }
+                break;
+        }
+    }
+    return ss.str();
+}
+
+static string unescapeJSON(const string& str) {
+    string result;
+    for (size_t i = 0; i < str.length(); ++i) {
+        if (str[i] == '\\' && i + 1 < str.length()) {
+            switch (str[i + 1]) {
+                case '"': result += '"'; i++; break;
+                case '\\': result += '\\'; i++; break;
+                case '/': result += '/'; i++; break;
+                case 'b': result += '\b'; i++; break;
+                case 'f': result += '\f'; i++; break;
+                case 'n': result += '\n'; i++; break;
+                case 'r': result += '\r'; i++; break;
+                case 't': result += '\t'; i++; break;
+                case 'u':
+                    if (i + 5 < str.length()) {
+                        result += '?'; // Placeholder for unicode
+                        i += 5;
+                    }
+                    break;
+                default: result += str[i]; break;
+            }
+        } else {
+            result += str[i];
+        }
+    }
+    return result;
+}
+
+// ─────────────────────────────────────────────
+// JSON Serialization
+// ─────────────────────────────────────────────
+string Receipt::toJSON() const {
+    stringstream ss;
+    ss << "{\n";
+    ss << "  \"receiptNumber\": \"" << escapeJSON(receiptNumber) << "\",\n";
+    ss << "  \"timestamp\": \"" << escapeJSON(formatTime(timestamp)) << "\",\n";
+    ss << "  \"customerName\": \"" << escapeJSON(customerName) << "\",\n";
+    ss << "  \"customerPhone\": \"" << escapeJSON(customerPhone) << "\",\n";
+    ss << "  \"customerEmail\": \"" << escapeJSON(customerEmail) << "\",\n";
+    ss << "  \"items\": [\n";
+    
+    for (size_t i = 0; i < items.size(); ++i) {
+        const auto& item = items[i];
+        ss << "    {\n";
+        ss << "      \"id\": " << item.id << ",\n";
+        ss << "      \"name\": \"" << escapeJSON(item.name) << "\",\n";
+        ss << "      \"location\": \"" << escapeJSON(item.location) << "\",\n";
+        ss << "      \"quantity\": " << item.quantity << ",\n";
+        ss << "      \"unitPrice\": " << fixed << setprecision(2) << item.unitPrice << ",\n";
+        ss << "      \"lineTotal\": " << item.lineTotal() << "\n";
+        ss << "    }";
+        if (i < items.size() - 1) ss << ",";
+        ss << "\n";
+    }
+    
+    ss << "  ],\n";
+    ss << "  \"subtotal\": " << fixed << setprecision(2) << subtotal() << ",\n";
+    ss << "  \"tax\": " << tax() << ",\n";
+    ss << "  \"total\": " << total() << "\n";
+    ss << "}";
+    return ss.str();
+}
+
+// ─────────────────────────────────────────────
+// JSON Deserialization
+// ─────────────────────────────────────────────
+Receipt Receipt::fromJSON(const string& jsonStr) {
+    Receipt receipt;
+    
+    // Simple JSON parser for receipt
+    size_t pos = 0;
+    
+    // Helper to extract string value
+    auto extractString = [&](const string& key) -> string {
+        string searchKey = "\"" + key + "\"";
+        size_t keyPos = jsonStr.find(searchKey, pos);
+        if (keyPos == string::npos) return "";
+        
+        size_t colonPos = jsonStr.find(':', keyPos);
+        if (colonPos == string::npos) return "";
+        
+        size_t quoteStart = jsonStr.find('"', colonPos);
+        if (quoteStart == string::npos) return "";
+        
+        size_t quoteEnd = quoteStart + 1;
+        bool escaped = false;
+        while (quoteEnd < jsonStr.length()) {
+            if (escaped) {
+                escaped = false;
+                quoteEnd++;
+                continue;
+            }
+            if (jsonStr[quoteEnd] == '\\') {
+                escaped = true;
+                quoteEnd++;
+                continue;
+            }
+            if (jsonStr[quoteEnd] == '"') break;
+            quoteEnd++;
+        }
+        
+        string value = jsonStr.substr(quoteStart + 1, quoteEnd - quoteStart - 1);
+        pos = quoteEnd + 1;
+        return unescapeJSON(value);
+    };
+    
+    // Helper to extract number value
+    auto extractNumber = [&](const string& key) -> double {
+        string searchKey = "\"" + key + "\"";
+        size_t keyPos = jsonStr.find(searchKey, pos);
+        if (keyPos == string::npos) return 0.0;
+        
+        size_t colonPos = jsonStr.find(':', keyPos);
+        if (colonPos == string::npos) return 0.0;
+        
+        size_t numStart = colonPos + 1;
+        while (numStart < jsonStr.length() && (jsonStr[numStart] == ' ' || jsonStr[numStart] == '\t')) {
+            numStart++;
+        }
+        
+        size_t numEnd = numStart;
+        while (numEnd < jsonStr.length() && 
+               (isdigit(jsonStr[numEnd]) || jsonStr[numEnd] == '.' || 
+                jsonStr[numEnd] == '-' || jsonStr[numEnd] == '+' || jsonStr[numEnd] == 'e' || 
+                jsonStr[numEnd] == 'E')) {
+            numEnd++;
+        }
+        
+        string numStr = jsonStr.substr(numStart, numEnd - numStart);
+        pos = numEnd;
+        try {
+            return stod(numStr);
+        } catch (...) {
+            return 0.0;
+        }
+    };
+    
+    // Extract receipt fields
+    receipt.receiptNumber = extractString("receiptNumber");
+    string timestampStr = extractString("timestamp");
+    receipt.customerName = extractString("customerName");
+    receipt.customerPhone = extractString("customerPhone");
+    receipt.customerEmail = extractString("customerEmail");
+    
+    // Parse timestamp (simple format: "YYYY-MM-DD HH:MM:SS")
+    // For now, we'll set it to current time since parsing time_t from string is complex
+    receipt.timestamp = chrono::system_clock::now();
+    
+    // Extract items array
+    size_t itemsStart = jsonStr.find("\"items\"", pos);
+    if (itemsStart != string::npos) {
+        size_t arrayStart = jsonStr.find('[', itemsStart);
+        if (arrayStart != string::npos) {
+            size_t arrayEnd = jsonStr.find(']', arrayStart);
+            if (arrayEnd != string::npos) {
+                string itemsStr = jsonStr.substr(arrayStart + 1, arrayEnd - arrayStart - 1);
+                
+                // Parse each item object
+                size_t itemPos = 0;
+                while (itemPos < itemsStr.length()) {
+                    size_t objStart = itemsStr.find('{', itemPos);
+                    if (objStart == string::npos) break;
+                    
+                    size_t objEnd = objStart;
+                    int braceCount = 0;
+                    for (size_t i = objStart; i < itemsStr.length(); i++) {
+                        if (itemsStr[i] == '{') braceCount++;
+                        else if (itemsStr[i] == '}') {
+                            braceCount--;
+                            if (braceCount == 0) {
+                                objEnd = i;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (braceCount == 0) {
+                        string itemJson = itemsStr.substr(objStart, objEnd - objStart + 1);
+                        
+                        // Extract item fields
+                        size_t itemJsonPos = 0;
+                        auto getItemString = [&](const string& key) -> string {
+                            string searchKey = "\"" + key + "\"";
+                            size_t keyPos = itemJson.find(searchKey, itemJsonPos);
+                            if (keyPos == string::npos) return "";
+                            size_t colonPos = itemJson.find(':', keyPos);
+                            if (colonPos == string::npos) return "";
+                            size_t quoteStart = itemJson.find('"', colonPos);
+                            if (quoteStart == string::npos) return "";
+                            size_t quoteEnd = quoteStart + 1;
+                            bool escaped = false;
+                            while (quoteEnd < itemJson.length()) {
+                                if (escaped) { escaped = false; quoteEnd++; continue; }
+                                if (itemJson[quoteEnd] == '\\') { escaped = true; quoteEnd++; continue; }
+                                if (itemJson[quoteEnd] == '"') break;
+                                quoteEnd++;
+                            }
+                            string value = itemJson.substr(quoteStart + 1, quoteEnd - quoteStart - 1);
+                            itemJsonPos = quoteEnd + 1;
+                            return unescapeJSON(value);
+                        };
+                        
+                        auto getItemNumber = [&](const string& key) -> double {
+                            string searchKey = "\"" + key + "\"";
+                            size_t keyPos = itemJson.find(searchKey, itemJsonPos);
+                            if (keyPos == string::npos) return 0.0;
+                            size_t colonPos = itemJson.find(':', keyPos);
+                            if (colonPos == string::npos) return 0.0;
+                            size_t numStart = colonPos + 1;
+                            while (numStart < itemJson.length() && (itemJson[numStart] == ' ' || itemJson[numStart] == '\t')) {
+                                numStart++;
+                            }
+                            size_t numEnd = numStart;
+                            while (numEnd < itemJson.length() && 
+                                   (isdigit(itemJson[numEnd]) || itemJson[numEnd] == '.' || 
+                                    itemJson[numEnd] == '-' || itemJson[numEnd] == '+')) {
+                                numEnd++;
+                            }
+                            string numStr = itemJson.substr(numStart, numEnd - numStart);
+                            itemJsonPos = numEnd;
+                            try {
+                                return stod(numStr);
+                            } catch (...) {
+                                return 0.0;
+                            }
+                        };
+                        
+                        ReceiptItem item;
+                        item.id = (int)getItemNumber("id");
+                        item.name = getItemString("name");
+                        item.location = getItemString("location");
+                        item.quantity = (int)getItemNumber("quantity");
+                        item.unitPrice = getItemNumber("unitPrice");
+                        
+                        receipt.items.push_back(item);
+                    }
+                    
+                    itemPos = objEnd + 1;
+                    while (itemPos < itemsStr.length() && 
+                           (itemsStr[itemPos] == ',' || itemsStr[itemPos] == ' ' || 
+                            itemsStr[itemPos] == '\t' || itemsStr[itemPos] == '\n' || itemsStr[itemPos] == '\r')) {
+                        itemPos++;
+                    }
+                }
+            }
+        }
+    }
+    
+    return receipt;
+}
+// ─────────────────────────────────────────────
 // Save Receipt
 // ─────────────────────────────────────────────
 void Receipt::saveToFile(const string& directory) const {
     filesystem::create_directories(directory);
-    string filename = directory + "/" + receiptNumber + ".csv";
+    string filename = directory + "/" + receiptNumber + ".json";
 
     ofstream file(filename);
     if (!file)
         throw runtime_error("Failed to save receipt");
 
-    file << "Receipt," << receiptNumber << "\n";
-    file << "Date," << formatTime(timestamp) << "\n";
-    file << "Customer," << customerName << "\n\n";
-    file << "ID,Name,Location,Qty,UnitPrice,LineTotal\n";
+    file << toJSON();
+}
 
-    for (const auto& i : items) {
-        file << i.id << "," << i.name << "," << i.location << ","
-             << i.quantity << "," << i.unitPrice << "," << i.lineTotal() << "\n";
+// ─────────────────────────────────────────────
+// Load Receipt History
+// ─────────────────────────────────────────────
+vector<Receipt> Receipt::loadHistory(const string& directory) {
+    vector<Receipt> receipts;
+    
+    if (!filesystem::exists(directory)) {
+        return receipts;
     }
-
-    file << "\nSubtotal," << subtotal() << "\n";
-    file << "Tax," << tax() << "\n";
-    file << "Total," << total() << "\n";
+    
+    try {
+        for (const auto& entry : filesystem::directory_iterator(directory)) {
+            if (entry.is_regular_file() && entry.path().extension() == ".json") {
+                ifstream file(entry.path());
+                if (!file) continue;
+                
+                stringstream buffer;
+                buffer << file.rdbuf();
+                string jsonContent = buffer.str();
+                
+                if (!jsonContent.empty()) {
+                    try {
+                        Receipt receipt = fromJSON(jsonContent);
+                        receipts.push_back(receipt);
+                    } catch (...) {
+                        // Skip invalid JSON files
+                        continue;
+                    }
+                }
+            }
+        }
+    } catch (const filesystem::filesystem_error&) {
+        // Directory doesn't exist or can't be accessed
+        return receipts;
+    }
+    
+    return receipts;
 }

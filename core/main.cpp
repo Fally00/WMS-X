@@ -89,7 +89,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Initialize system
-    WmsControllers wms("inventory_data.csv");
+    WmsControllers wms("inventory_data.json");
     if (!wms.initializeSystem()) {
         OutputFormatter::printError("Failed to initialize WMS. Exiting.");
         return 1;
