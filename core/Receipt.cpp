@@ -264,37 +264,6 @@ Receipt Receipt::fromJSON(const string& jsonStr) {
         return unescapeJSON(value);
     };
     
-    // Helper to extract number value
-    auto extractNumber = [&](const string& key) -> double {
-        string searchKey = "\"" + key + "\"";
-        size_t keyPos = jsonStr.find(searchKey, pos);
-        if (keyPos == string::npos) return 0.0;
-        
-        size_t colonPos = jsonStr.find(':', keyPos);
-        if (colonPos == string::npos) return 0.0;
-        
-        size_t numStart = colonPos + 1;
-        while (numStart < jsonStr.length() && (jsonStr[numStart] == ' ' || jsonStr[numStart] == '\t')) {
-            numStart++;
-        }
-        
-        size_t numEnd = numStart;
-        while (numEnd < jsonStr.length() && 
-               (isdigit(jsonStr[numEnd]) || jsonStr[numEnd] == '.' || 
-                jsonStr[numEnd] == '-' || jsonStr[numEnd] == '+' || jsonStr[numEnd] == 'e' || 
-                jsonStr[numEnd] == 'E')) {
-            numEnd++;
-        }
-        
-        string numStr = jsonStr.substr(numStart, numEnd - numStart);
-        pos = numEnd;
-        try {
-            return stod(numStr);
-        } catch (...) {
-            return 0.0;
-        }
-    };
-    
     // Extract receipt fields
     receipt.receiptNumber = extractString("receiptNumber");
     string timestampStr = extractString("timestamp");
