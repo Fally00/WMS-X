@@ -69,9 +69,9 @@ g++ -std=c++17 -O0 -g -Wall -Wextra -Icore core/*.cpp cli.cpp -o wms.exe
 
 | Phase | Feature |
 |------|--------|
-| Phase 1 | CLI Core (Current) |
-| Phase 2 | SQLite backend (JSON persistence implemented) |
-| Phase 3 | Qt GUI Front-End |
+| Phase 1 | CLI Core (Done) |
+| Phase 2 | SQLite backend (JSON persistence implemented) (Done) |
+| Phase 3 | Qt GUI Front-End (Current plan) |
 | Phase 4 | REST API (Crow / Pistache) |
 | Phase 5 | Web Dashboard |
 
