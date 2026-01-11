@@ -1,7 +1,11 @@
 #pragma once
+
+//needed file inclusion
+#include "command.hpp"
+
+//librries
 #include <unordered_map>
 #include <memory>
-#include "command.hpp"
 
 class CommandRegistry {
     std::unordered_map<std::string, std::unique_ptr<ICommand>> commands;

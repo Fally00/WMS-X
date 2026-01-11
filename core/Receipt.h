@@ -1,9 +1,13 @@
 #pragma once
+
+//needed file inclusion 
+#include "Item.h"
+
+//needed libraries
+#include <unordered_map>
 #include <string>
 #include <vector>
 #include <chrono>
-#include <unordered_map>
-#include "Item.h"
 
 struct ReceiptItem {
     int id;

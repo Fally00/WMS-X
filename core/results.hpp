@@ -33,7 +33,7 @@ struct Result<void> {
         return {true, ""};
     }
 
-    // ✅ Fixed: renamed from 'failure' to 'fail' to match usage
+    //  Fixed: renamed from 'failure' to 'fail' to match usage
     static Result fail(std::string e) {
         return {false, std::move(e)};
     }

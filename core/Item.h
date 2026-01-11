@@ -1,4 +1,6 @@
 #pragma once
+
+//needed libraries
 #include <string>
 #include <vector>
 #include <ctime>
@@ -34,7 +36,7 @@ public:
          int qty,
          const std::string& loc,
          double price = 0.0,
-         const std::string& currency = "USD",
+         const std::string& currency = "EGP",
          const std::string& unit = "pcs",
          const std::string& category = "general");
          
@@ -59,5 +61,6 @@ public:
     bool operator==(const Item& o) const;
     bool operator<(const Item& o) const;
 };
+
 // Print Item Details (Improved)
 void printItem(const Item& item);

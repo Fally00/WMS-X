@@ -1,15 +1,19 @@
 #pragma once
-#include "command.hpp"
-#include "safetyparse.hpp"
+
+//included files
 #include "CommandContext.hpp" // ← needed for CommandContext definition
-#include "Item.h"
+#include "safetyparse.hpp"
+#include "command.hpp"
 #include "Receipt.h"
 #include "output.h"
+#include "Item.h"
 
+//needed libraries
 #include <optional>
 #include <sstream>
 #include <algorithm>
 #include <stdexcept>
+
 
 // Command to add an item
 class AddCommand : public ICommand {
@@ -23,7 +27,7 @@ public:
         if (!id.ok || !qty.ok)
             return Result<void>::fail(id.ok ? qty.error : id.error);
 
-        // ✅ Now expects WmsControllers::addItem(int, string, int, string)
+        //  Now expects WmsControllers::addItem(int, string, int, string)
         if (!ctx.wms.addItem(id.value, a[1], qty.value, a[3]))
             return Result<void>::fail("Item exists");
 
@@ -32,6 +36,7 @@ public:
     }
 };
 
+//Command to remove an item
 class RemoveCommand : public ICommand {
 public:
     Result<void> execute(CommandContext& ctx, const std::vector<std::string>& a) override {
@@ -40,6 +45,8 @@ public:
 
         auto id = safetyparse(a[0]);
         if (!id.ok) return Result<void>::fail(id.error);
+
+        // Now expects Wmscootroller::removeItem(id)
         if (!ctx.wms.removeItem(id.value)) return Result<void>::fail("Item not found");
 
         if (ctx.autosave) ctx.wms.saveAll();
@@ -47,6 +54,7 @@ public:
     }
 };
 
+//Command to list the current stock of items
 class ListCommand : public ICommand {
 public:
     Result<void> execute(CommandContext& ctx, const std::vector<std::string>& a) override {
@@ -67,6 +75,7 @@ public:
     }
 };
 
+//Command to Search for a specfic item
 class SearchCommand : public ICommand {
 public:
     Result<void> execute(CommandContext& ctx, const std::vector<std::string>& a) override {

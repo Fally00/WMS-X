@@ -5,18 +5,18 @@
 // VISUAL: CLI argument parsing (help/version/no-color).
 #include "cli.h"
 
-#include "registry.hpp"        // CommandRegistry
-#include "parser.hpp"          // tokenize()
-#include "command.hpp"         // ICommand
-#include "addComand.hpp"      // Command implementations (add/remove/etc)
+#include "registry.hpp"            // CommandRegistry
+#include "parser.hpp"             // tokenize()
+#include "command.hpp"           // ICommand
+#include "addComand.hpp"        // Command implementations (add/remove/etc)
 #include "CommandContext.hpp"  // CommandContext
 
-#include <vector>
-
+//libraries for work
+#include <algorithm>
 #include <iostream>
+#include <vector>
 #include <memory>
 #include <string>
-#include <algorithm>
 
 /*==========================================
      = Main command processing loop  

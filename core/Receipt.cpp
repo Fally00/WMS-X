@@ -1,12 +1,15 @@
+//Most needed file inclusion
 #include "Receipt.h"
+
+//needed libraries
+#include <filesystem>
+#include <algorithm>
 #include <iostream>
 #include <sstream>
 #include <fstream>
 #include <iomanip>
-#include <filesystem>
 #include <random>
 #include <cctype>
-#include <algorithm>
 
 using namespace std;
 
@@ -103,7 +106,7 @@ string Receipt::getReceiptNumber() const {
 // ─────────────────────────────────────────────
 void Receipt::print() const {
     cout << "\n=====================================\n";
-    cout << "        WMS-X WAREHOUSE RECEIPT\n";
+    cout << "        WMS-X  RECEIPT\n";
     cout << "-------------------------------------\n";
     cout << "Receipt: " << receiptNumber << "\n";
     cout << "Date   : " << formatTime(timestamp) << "\n";
@@ -113,7 +116,7 @@ void Receipt::print() const {
     cout << "-------------------------------------\n";
     cout << left << setw(5) << "ID"
          << setw(15) << "Name"
-         << setw(6) << "Qty"
+         << setw(6) << "Quantity"
          << setw(10) << "Price"
          << setw(10) << "Total" << "\n";
 
@@ -374,7 +377,7 @@ Receipt Receipt::fromJSON(const string& jsonStr) {
             }
         }
     }
-    
+ 
     return receipt;
 }
 // ─────────────────────────────────────────────

@@ -9,7 +9,6 @@ bool OutputFormatter::useColor = true;
 bool OutputFormatter::logEnabled = false;
 std::ofstream OutputFormatter::logFile;
 
-// VISUAL: Avoid raw ANSI escape sequences by default on Windows (they can display as gibberish).
 // We use Win32 console attributes instead when a console is available.
 static HANDLE gConsole = INVALID_HANDLE_VALUE;
 static WORD gDefaultAttrs = 0;
@@ -72,9 +71,9 @@ void OutputFormatter::printBanner() {
         " _    ____  ___ _____                        \n"
         "| |  | |  \\//  |/  ___|                     \n"
         "| |  | | .  . |\\ `--. __________            \n"
-        "| |/\\| | |\\/| | `--. \\______\\ \\/ /      \n"
-        "\\  /\\  / |  | |/\\__/ /        >  <        \n"
-        " \\/  \\/\\_|  |_/\\____/       /_/\\_\\     \n";
+        "| |/\\| | |\\/| | `--. \\______\ \\/ /      \n"
+        "\\  /\\  / |  | |/\\__/ /        > <        \n"
+        " \\/  \\/\\_|  |_/\\____/      /_/\\_\     \n";
 
     setColor(FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_INTENSITY);
     write(std::string("\n") + banner + "\n");

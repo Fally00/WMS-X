@@ -1,10 +1,13 @@
+//Included files
 #include "Item.h"
 #include "output.h"
+
+//Needed libraries
+#include <stdexcept>
 #include <algorithm>
 #include <iostream>
-#include <iomanip>
 #include <sstream>
-#include <stdexcept>
+#include <iomanip>
 #include <vector>
 #include <cctype>
 using namespace std;
@@ -18,7 +21,7 @@ void Item::touch() {
 }
 
 bool Item::isValidLocation(const std::string& loc) {
-    // Minimal validation for now; can be tightened later.
+    // Minimal validation for now
     return !loc.empty();
 }
 
@@ -85,12 +88,13 @@ bool Item::operator<(const Item& o) const { return id < o.id; }
 
 // Print Item Details (Improved)
 void printItem(const Item& item) {
-    std::vector<std::string> headers = {"ID", "Name", "Quantity", "Location"};
+    std::vector<std::string> headers = {"ID", "Name", "Quantity", "Location" , "Currency"};
     std::vector<std::vector<std::string>> rows = {{
         std::to_string(item.getId()),
         item.getName(),
         std::to_string(item.getQuantity()),
-        item.getLocation()
+        item.getLocation(),
+        item.getCurrency()
     }};
     OutputFormatter::printTable(headers, rows);
 }
@@ -135,15 +139,16 @@ static std::string unescapeJSON(const std::string& str) {
     for (size_t i = 0; i < str.length(); ++i) {
         if (str[i] == '\\' && i + 1 < str.length()) {
             switch (str[i + 1]) {
-                case '"': result += '"'; i++; break;
-                case '\\': result += '\\'; i++; break;
-                case '/': result += '/'; i++; break;
+                case '"': result += '"';  i++; break;
+                case '\\':result += '\\'; i++; break;
+                case '/': result += '/';  i++; break;
                 case 'b': result += '\b'; i++; break;
                 case 'f': result += '\f'; i++; break;
                 case 'n': result += '\n'; i++; break;
                 case 'r': result += '\r'; i++; break;
                 case 't': result += '\t'; i++; break;
                 case 'u':
+                
                     // Simple unicode escape (basic support)
                     if (i + 5 < str.length()) {
                         result += '?'; // Placeholder for unicode

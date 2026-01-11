@@ -1,7 +1,10 @@
 #pragma once
+//needed file inclusion
 #include "Inventory.h"
 #include "Storage.h"
 #include "Receipt.h"
+
+//needed libraries
 #include <unordered_map>
 #include <functional>
 #include <optional>

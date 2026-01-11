@@ -1,5 +1,8 @@
+//Included files
 #include "Inventory.h"
 #include "output.h"
+
+//Needed libraries 
 #include <algorithm>
 #include <iostream>
 #include <sstream>
@@ -30,7 +33,7 @@ void Inventory::removeMultiple(const std::vector<int> &ids) {
 }
 
 // -----------------------------
-// Lookup / Search / find 
+// Search 
 // -----------------------------
 Item* Inventory::findItem(int itemId) {
     auto it = items.find(itemId);
@@ -151,12 +154,12 @@ int Inventory::totalQuantity() const {
 }
 
 // -----------------------------
-// JSON
+// JSON implementation
 // -----------------------------
 void Inventory::fromJSON(const std::string &jsonData) {
     if (jsonData.empty()) return;
     
-    // Parse JSON array: [{"id":1,...}, {"id":2,...}]
+    // Parse JSON array
     std::string trimmed = jsonData;
     // Remove leading/trailing whitespace
     trimmed.erase(0, trimmed.find_first_not_of(" \t\n\r"));
@@ -171,7 +174,7 @@ void Inventory::fromJSON(const std::string &jsonData) {
     }
     
     // Parse array
-    size_t pos = 1; // Skip '['
+    size_t pos = 1; 
     while (pos < trimmed.length()) {
         // Skip whitespace
         while (pos < trimmed.length() && (trimmed[pos] == ' ' || trimmed[pos] == '\t' || trimmed[pos] == '\n' || trimmed[pos] == '\r')) {

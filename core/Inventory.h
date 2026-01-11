@@ -1,9 +1,13 @@
 #pragma once
+
+//Included file
 #include "Item.h"
+
+//NEeded libraries 
+#include <unordered_map>
+#include <optional>
 #include <string>
 #include <vector>
-#include <optional>
-#include <unordered_map>
 
 class Inventory {
 private:
