@@ -1,5 +1,5 @@
 
-#  WMS-X — Warehouse Management System (C++ CLI Edition)
+#  WMS-X — Warehouse Management System ( SQLite Database edition )
 
 A **modular**, **high-performance** Warehouse Management System built in **modern C++17**, designed with clean architecture, real-world logistics workflows, and future scalability in mind.
 
