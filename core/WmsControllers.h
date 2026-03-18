@@ -56,8 +56,15 @@ public:
 
     bool addItem(int id, const std::string& name, int qty, const std::string& loc);
     bool removeItem(int id);
+    bool updateItem(int id,
+                    const std::optional<std::string>& name,
+                    const std::optional<int>& qty,
+                    const std::optional<std::string>& loc,
+                    const std::optional<double>& price);
+    bool adjustStock(int id, int delta);
     void listItems(size_t page = 0, size_t pageSize = 10);
     std::optional<Item> getItem(int id);
+    std::vector<Item> searchByName(const std::string& query);
 
     void enqueueTask(const std::string& raw, TaskPriority prio = TaskPriority::NORMAL);
     void processTasks(size_t limit = 0); // limit=0 → all

@@ -65,6 +65,40 @@ std::optional<Item> WmsControllers::getItem(int id) {
     return std::nullopt;
 }
 
+bool WmsControllers::updateItem(int id,
+                                 const std::optional<std::string>& name,
+                                 const std::optional<int>& qty,
+                                 const std::optional<std::string>& loc,
+                                 const std::optional<double>& price) {
+    Item* item = inventory.findItem(id);
+    if (!item) return false;
+
+    try {
+        if (name)  item->setName(*name);
+        if (qty)   item->setQuantity(*qty);
+        if (loc)   item->setLocation(*loc);
+        if (price) item->setPrice(*price);
+    } catch (const std::exception&) {
+        return false;
+    }
+    return true;
+}
+
+bool WmsControllers::adjustStock(int id, int delta) {
+    Item* item = inventory.findItem(id);
+    if (!item) return false;
+    try {
+        item->changeQuantity(delta);
+    } catch (const std::exception&) {
+        return false;
+    }
+    return true;
+}
+
+std::vector<Item> WmsControllers::searchByName(const std::string& query) {
+    return inventory.searchByName(query);
+}
+
 // ─────────────────────────────────────────────
 // Task ID generator
 // ─────────────────────────────────────────────
