@@ -102,15 +102,7 @@ WMS-Cpp/
 ##  Building (MSYS2 / MinGW)
 
 ```bash
-g++ -std=c++17 -O0 -g -Wall -Wextra \
-  -Isrc -Ivendor/SQLiteCpp/include \
-  src/main.cpp \
-  src/models/Item.cpp src/models/Inventory.cpp \
-  src/storage/Storage.cpp src/storage/Receipt.cpp \
-  src/controllers/WmsControllers.cpp \
-  src/output/output.cpp src/cli/cli.cpp \
-  vendor/SQLiteCpp/src/*.cpp \
-  -lsqlite3 -o wms.exe
+gcc -c -O2 -Ivendor/SQLiteCpp/sqlite3 vendor/SQLiteCpp/sqlite3/sqlite3.c -o sqlite3.o; g++ -std=c++17 -O2 -Wall -Wextra -Isrc -Ivendor/SQLiteCpp/include -Ivendor/SQLiteCpp/sqlite3 src/main.cpp src/models/Item.cpp src/models/Inventory.cpp src/storage/Storage.cpp src/storage/Receipt.cpp src/controllers/WmsControllers.cpp src/output/output.cpp src/cli/cli.cpp vendor/SQLiteCpp/src/Backup.cpp vendor/SQLiteCpp/src/Column.cpp vendor/SQLiteCpp/src/Database.cpp vendor/SQLiteCpp/src/Exception.cpp vendor/SQLiteCpp/src/Savepoint.cpp vendor/SQLiteCpp/src/Statement.cpp vendor/SQLiteCpp/src/Transaction.cpp sqlite3.o -lpthread -o wms.exe; Remove-Item sqlite3.o
 ```
 
 ---
