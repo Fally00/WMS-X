@@ -64,10 +64,12 @@ int main(int argc, char* argv[]) {
     OutputFormatter::printInfo("Type 'help' for commands, 'exit' to quit.");
 
     const std::vector<std::pair<std::string, std::string>> commands = {
-        {"add <id> <name> <quantity> <location>", "                                             Add new item"},
+        {"add <id> <n> <quantity> <location>", "                                                Add new item"},
         {"remove <id>", "                                                                  Remove item by id"},
+        {"update <id> [--name <n>] [--qty <q>] [--loc <l>] [--price <p>]",              " Update item fields"},
         {"list [page] [pageSize]", "                                                      List items (paged)"},
-        {"search <id>", "Find item by id"},
+        {"search <id>", "                                                                    Find item by id"},
+        {"search --name <query>", "                                                       Find items by name"},
         {"queue <COMMAND...>", "                                       Queue a task (ADD/REMOVE/LIST/SEARCH)"},
         {"runq [limit]", "                                                              Process queued tasks"},
         {"receipt <id quantity price>... [customer]", "           Generate & save a receipt (multiple lines)"},
@@ -99,6 +101,7 @@ int main(int argc, char* argv[]) {
     CommandRegistry registry;
     registry.registerCommand<AddCommand>("add");
     registry.registerCommand<RemoveCommand>("remove");
+    registry.registerCommand<UpdateCommand>("update");
     registry.registerCommand<ListCommand>("list");
     registry.registerCommand<SearchCommand>("search");
     registry.registerCommand<QueueCommand>("queue");
