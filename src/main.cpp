@@ -86,7 +86,7 @@ int main(int argc, char* argv[]) {
         return 0;
     }
     if (opt.showVersion) {
-        OutputFormatter::printVersion("1.4.1");
+        OutputFormatter::printVersion("1.5.0");
         return 0;
     }
 
@@ -120,7 +120,7 @@ int main(int argc, char* argv[]) {
         std::transform(cmd.begin(), cmd.end(), cmd.begin(), ::tolower);
 
         if (cmd == "version" || cmd == "-v" || cmd == "--version") {
-            OutputFormatter::printVersion("1.4.1");
+            OutputFormatter::printVersion("1.5.0");
             return 0;
         }
 
@@ -161,7 +161,7 @@ int main(int argc, char* argv[]) {
         }
 
         if (input == "version" || input == "-v" || input == "--version") {
-            OutputFormatter::printVersion("1.4.1");
+            OutputFormatter::printVersion("1.5.0");
             continue;
         }
 
