@@ -54,6 +54,61 @@ public:
     }
 };
 
+// Command to update an existing item's fields
+// Usage: update <id> [--name <n>] [--qty <q>] [--loc <l>] [--price <p>]
+class UpdateCommand : public ICommand {
+public:
+    Result<void> execute(CommandContext& ctx, const std::vector<std::string>& a) override {
+        if (a.empty())
+            return Result<void>::fail("Usage: update <id> [--name <n>] [--qty <q>] [--loc <l>] [--price <p>]");
+
+        auto id = safetyparse(a[0]);
+        if (!id.ok) return Result<void>::fail(id.error);
+
+        std::optional<std::string> name, loc;
+        std::optional<int>         qty;
+        std::optional<double>      price;
+        bool anyFlag = false;
+
+        for (size_t i = 1; i + 1 < a.size(); i += 2) {
+            const std::string& flag = a[i];
+            const std::string& val  = a[i + 1];
+
+            if (flag == "--name") {
+                name = val;
+                anyFlag = true;
+            } else if (flag == "--qty") {
+                auto q = safetyparse(val);
+                if (!q.ok) return Result<void>::fail(q.error);
+                if (q.value < 0) return Result<void>::fail("Quantity must be >= 0");
+                qty = q.value;
+                anyFlag = true;
+            } else if (flag == "--loc") {
+                loc = val;
+                anyFlag = true;
+            } else if (flag == "--price") {
+                double p = 0.0;
+                try { p = std::stod(val); }
+                catch (...) { return Result<void>::fail("Price must be a number"); }
+                if (p < 0.0) return Result<void>::fail("Price cannot be negative");
+                price = p;
+                anyFlag = true;
+            } else {
+                return Result<void>::fail("Unknown flag: " + flag);
+            }
+        }
+
+        if (!anyFlag)
+            return Result<void>::fail("No fields specified. Use --name, --qty, --loc, --price");
+
+        if (!ctx.wms.updateItem(id.value, name, qty, loc, price))
+            return Result<void>::fail("Item not found or update failed");
+
+        if (ctx.autosave) ctx.wms.saveAll();
+        return Result<void>::success();
+    }
+};
+
 //Command to list the current stock of items
 class ListCommand : public ICommand {
 public:
@@ -75,11 +130,31 @@ public:
     }
 };
 
-//Command to Search for a specfic item
+//Command to Search for a specific item — by ID or by name
+// Usage: search <id>          → exact ID lookup
+//        search --name <q>    → partial name search (case-sensitive)
 class SearchCommand : public ICommand {
 public:
     Result<void> execute(CommandContext& ctx, const std::vector<std::string>& a) override {
-        if (a.size() != 1) return Result<void>::fail("Usage: search <id>");
+        if (a.empty())
+            return Result<void>::fail("Usage: search <id>  |  search --name <query>");
+
+        // Name search path
+        if (a[0] == "--name") {
+            if (a.size() < 2) return Result<void>::fail("Usage: search --name <query>");
+            std::string query = a[1];
+
+            auto results = ctx.wms.searchByName(query);
+            if (results.empty())
+                return Result<void>::fail("No items found matching: " + query);
+
+            for (const auto& item : results) printItem(item);
+            return Result<void>::success();
+        }
+
+        // ID search path
+        if (a.size() != 1)
+            return Result<void>::fail("Usage: search <id>  |  search --name <query>");
 
         auto id = safetyparse(a[0]);
         if (!id.ok) return Result<void>::fail(id.error);
@@ -179,6 +254,18 @@ public:
             return Result<void>::fail(std::string("Failed to generate receipt: ") + e.what());
         }
 
+        // Deduct sold quantities from inventory now that the receipt is committed
+        for (size_t i = 0; i < itemsEnd; i += 3) {
+            int itemId = std::stoi(a[i]);
+            int qty    = std::stoi(a[i + 1]);
+            if (!ctx.wms.adjustStock(itemId, -qty)) {
+                OutputFormatter::printWarning(
+                    "Warning: could not deduct stock for item " + a[i] +
+                    " (receipt saved, inventory may be inconsistent)");
+            }
+        }
+
+        if (ctx.autosave) ctx.wms.saveAll();
         return Result<void>::success();
     }
 };
