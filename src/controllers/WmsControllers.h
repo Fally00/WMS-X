@@ -1,8 +1,8 @@
 #pragma once
 //needed file inclusion
-#include "Inventory.h"
-#include "Storage.h"
-#include "Receipt.h"
+#include "models/Inventory.h"
+#include "storage/Storage.h"
+#include "storage/Receipt.h"
 
 //needed libraries
 #include <unordered_map>
@@ -30,8 +30,8 @@ struct Task {
 
 class WmsControllers {
 private:
-    Inventory inventory;
     Storage storage;
+    Inventory inventory;
     std::priority_queue<Task> taskQueue;
 
     std::unordered_map<std::string,
@@ -65,6 +65,9 @@ public:
     void listItems(size_t page = 0, size_t pageSize = 10);
     std::optional<Item> getItem(int id);
     std::vector<Item> searchByName(const std::string& query);
+
+    // Receipt support — expose DB for receipt operations
+    SQLite::Database& getDB();
 
     void enqueueTask(const std::string& raw, TaskPriority prio = TaskPriority::NORMAL);
     void processTasks(size_t limit = 0); // limit=0 → all

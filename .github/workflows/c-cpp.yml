@@ -12,12 +12,27 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install SQLite
+      run: sudo apt-get install -y libsqlite3-dev
 
     - name: Compile Code
-      # This tries to compile all .cpp files into an executable named 'wms'
-      run: g++ -o wms *.cpp
-
-    - name: Run Test (Optional)
-      # Only keep this if your program runs and exits immediately. 
-      # If it waits for user input, remove this step!
-      run: ./wms
+      run: |
+        g++ -std=c++17 -O2 -Wall -Wextra \
+          -Isrc -Ivendor/SQLiteCpp/include \
+          src/main.cpp \
+          src/models/Item.cpp src/models/Inventory.cpp \
+          src/storage/Storage.cpp src/storage/Receipt.cpp \
+          src/controllers/WmsControllers.cpp \
+          src/output/output.cpp src/cli/cli.cpp \
+          vendor/SQLiteCpp/src/Backup.cpp \
+          vendor/SQLiteCpp/src/Column.cpp \
+          vendor/SQLiteCpp/src/Database.cpp \
+          vendor/SQLiteCpp/src/Exception.cpp \
+          vendor/SQLiteCpp/src/Savepoint.cpp \
+          vendor/SQLiteCpp/src/Statement.cpp \
+          vendor/SQLiteCpp/src/Transaction.cpp \
+          -lsqlite3 -lpthread -ldl \
+          -o wms

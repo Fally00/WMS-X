@@ -1,0 +1,24 @@
+# Build artifacts
+*.o
+*.exe
+*.out
+
+# Database files
+*.db
+
+# Legacy data
+inventory_data.json
+
+# Log files
+wms.log
+
+# Build directories
+build/
+temp/
+
+# IDE / Editor
+.vscode/
+
+# OS junk
+.DS_Store
+Thumbs.db

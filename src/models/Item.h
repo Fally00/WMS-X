@@ -40,10 +40,6 @@ public:
          const std::string& unit = "pcs",
          const std::string& category = "general");
          
-    // JSON Serialization / Deserialization
-    static Item fromJSON(const std::string& jsonStr);
-    std::string toJSON() const;
-
     // Getters and Setters for data members
     int getId() const;
     const std::string& getName() const;

@@ -1,7 +1,7 @@
 #pragma once
 
 //Included Files
-#include "WmsControllers.h"
+#include "controllers/WmsControllers.h"
 
 //Needed libraries
 #include <string>

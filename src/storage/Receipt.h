@@ -1,7 +1,8 @@
 #pragma once
 
 //needed file inclusion 
-#include "Item.h"
+#include "models/Item.h"
+#include <SQLiteCpp/SQLiteCpp.h>
 
 //needed libraries
 #include <unordered_map>
@@ -34,12 +35,10 @@ public:
     std::string getReceiptNumber() const;
 
     void print() const;
-    void saveToFile(const std::string& directory = "receipts") const;
-    static std::vector<Receipt> loadHistory(const std::string& directory = "receipts");
-    
-    // JSON Serialization
-    std::string toJSON() const;
-    static Receipt fromJSON(const std::string& jsonStr);
+
+    // SQLite persistence
+    void saveToDB(SQLite::Database& db) const;
+    static std::vector<Receipt> loadHistory(SQLite::Database& db);
 
 private:
     std::string receiptNumber;

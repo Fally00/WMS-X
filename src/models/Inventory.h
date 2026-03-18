@@ -1,26 +1,33 @@
 #pragma once
 
 //Included file
-#include "Item.h"
+#include "models/Item.h"
+#include "storage/Storage.h"
 
-//NEeded libraries 
+//Needed libraries 
 #include <unordered_map>
-#include <optional>
 #include <string>
 #include <vector>
 
 class Inventory {
 private:
     std::unordered_map<int, Item> items;   // ID -> Item for O(1) lookup
-    std::string dataFilePath;
+    SQLite::Database& db;
 
 public:
-    Inventory(const std::string &filePath);
+    Inventory(SQLite::Database& database);
+
+    // Load all items from SQLite into memory
+    void loadAll();
 
     // CRUD
     bool addItem(const Item &item);               // returns false if duplicate
     bool removeItem(int itemId);                  // returns false if not found
     Item* findItem(int itemId);                   // returns nullptr if not found
+
+    // Persist single item changes to SQLite
+    void saveItem(const Item& item);
+    void updateItemInDB(const Item& item);
 
     // Batch operations
     void addMultiple(const std::vector<Item> &batch);
@@ -37,10 +44,6 @@ public:
     std::vector<Item> sortByName(bool ascending = true) const;
     std::vector<Item> sortByQuantity(bool ascending = true) const;
     std::vector<Item> sortByLocation(bool ascending = true) const;
-
-    // JSON
-    void fromJSON(const std::string &jsonData);
-    std::string toJSON() const;
 
     // Stats
     size_t totalItems() const { return items.size(); }

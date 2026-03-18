@@ -1,7 +1,7 @@
 #pragma once
 
 //Included file
-#include "results.hpp"
+#include "utils/results.hpp"
 
 //Needed libraries
 #include <vector>

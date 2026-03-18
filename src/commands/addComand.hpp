@@ -1,12 +1,12 @@
 #pragma once
 
 //included files
-#include "CommandContext.hpp" // ← needed for CommandContext definition
-#include "safetyparse.hpp"
-#include "command.hpp"
-#include "Receipt.h"
-#include "output.h"
-#include "Item.h"
+#include "commands/CommandContext.hpp" // ← needed for CommandContext definition
+#include "utils/safetyparse.hpp"
+#include "commands/command.hpp"
+#include "storage/Receipt.h"
+#include "output/output.h"
+#include "models/Item.h"
 
 //needed libraries
 #include <optional>
@@ -249,7 +249,7 @@ public:
 
         try {
             receipt.print();
-            receipt.saveToFile();
+            receipt.saveToDB(ctx.wms.getDB());
         } catch (const std::exception& e) {
             return Result<void>::fail(std::string("Failed to generate receipt: ") + e.what());
         }

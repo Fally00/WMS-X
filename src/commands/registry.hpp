@@ -1,7 +1,7 @@
 #pragma once
 
 //needed file inclusion
-#include "command.hpp"
+#include "commands/command.hpp"
 
 //librries
 #include <unordered_map>

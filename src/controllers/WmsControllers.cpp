@@ -1,6 +1,6 @@
 //needed file inclusion
-#include "WmsControllers.h"
-#include "Item.h"
+#include "controllers/WmsControllers.h"
+#include "models/Item.h"
 
 //libraries
 #include <iostream>
@@ -15,7 +15,7 @@ using namespace std;
 // Constructor
 // ─────────────────────────────────────────────
 WmsControllers::WmsControllers(const string& storagePath)
-    : inventory(storagePath), storage(storagePath) {
+    : storage(storagePath), inventory(storage.getDB()) {
 
     commandRegistry["ADD"]    = [this](const Task& t){ return cmdAdd(t); };
     commandRegistry["REMOVE"] = [this](const Task& t){ return cmdRemove(t); };
@@ -27,20 +27,20 @@ WmsControllers::WmsControllers(const string& storagePath)
 // Init
 // ─────────────────────────────────────────────
 bool WmsControllers::initializeSystem() {
-    if (auto err = storage.initializeStorage()) {
-        cerr << "[STORAGE ERROR] " << err.value().message << endl;
+    try {
+        storage.initializeStorage();
+        inventory.loadAll();
+    } catch (const std::exception& e) {
+        cerr << "[STORAGE ERROR] " << e.what() << endl;
         return false;
     }
-
-    string e;
-    auto data = storage.readAll(e);
-    if (data) inventory.fromJSON(*data);
-
     return true;
 }
 
 void WmsControllers::saveAll() {
-    storage.atomicWrite(inventory.toJSON());
+    // With SQLite, each operation is persisted immediately.
+    // This method is kept for API compatibility but is now a no-op.
+    // All writes happen in addItem/removeItem/updateItem.
 }
 
 bool WmsControllers::addItem(int id, const string& name, int qty, const string& loc) {
@@ -81,6 +81,9 @@ bool WmsControllers::updateItem(int id,
     } catch (const std::exception&) {
         return false;
     }
+
+    // Persist the updated item to SQLite
+    inventory.updateItemInDB(*item);
     return true;
 }
 
@@ -92,11 +95,17 @@ bool WmsControllers::adjustStock(int id, int delta) {
     } catch (const std::exception&) {
         return false;
     }
+    // Persist the stock change
+    inventory.updateItemInDB(*item);
     return true;
 }
 
 std::vector<Item> WmsControllers::searchByName(const std::string& query) {
     return inventory.searchByName(query);
+}
+
+SQLite::Database& WmsControllers::getDB() {
+    return storage.getDB();
 }
 
 // ─────────────────────────────────────────────

@@ -1,14 +1,37 @@
 //Included files
-#include "Inventory.h"
-#include "output.h"
+#include "models/Inventory.h"
+#include "output/output.h"
 
 //Needed libraries 
 #include <algorithm>
 #include <iostream>
-#include <sstream>
 
-Inventory::Inventory(const std::string &filePath)
-    : dataFilePath(filePath) {}
+Inventory::Inventory(SQLite::Database& database)
+    : db(database) {}
+
+// -----------------------------
+// Load all items from SQLite
+// -----------------------------
+void Inventory::loadAll() {
+    items.clear();
+    SQLite::Statement query(db,
+        "SELECT id, name, quantity, location, price, currency, unit, category, "
+        "created_at, modified_at FROM items");
+
+    while (query.executeStep()) {
+        Item item(
+            query.getColumn(0).getInt(),       // id
+            query.getColumn(1).getString(),    // name
+            query.getColumn(2).getInt(),       // quantity
+            query.getColumn(3).getString(),    // location
+            query.getColumn(4).getDouble(),    // price
+            query.getColumn(5).getString(),    // currency
+            query.getColumn(6).getString(),    // unit
+            query.getColumn(7).getString()     // category
+        );
+        items[item.getId()] = item;
+    }
+}
 
 // -----------------------------
 // Add / Remove
@@ -16,11 +39,43 @@ Inventory::Inventory(const std::string &filePath)
 bool Inventory::addItem(const Item &item) {
     if (items.count(item.getId()) > 0) return false;
     items[item.getId()] = item;
+    saveItem(item);
     return true;
 }
 
 bool Inventory::removeItem(int itemId) {
-    return items.erase(itemId) > 0;
+    if (items.erase(itemId) > 0) {
+        SQLite::Statement query(db, "DELETE FROM items WHERE id = ?");
+        query.bind(1, itemId);
+        query.exec();
+        return true;
+    }
+    return false;
+}
+
+// Persist a single item (INSERT)
+void Inventory::saveItem(const Item& item) {
+    SQLite::Statement query(db,
+        "INSERT OR REPLACE INTO items "
+        "(id, name, quantity, location, price, currency, unit, category, created_at, modified_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+
+    query.bind(1, item.getId());
+    query.bind(2, item.getName());
+    query.bind(3, item.getQuantity());
+    query.bind(4, item.getLocation());
+    query.bind(5, item.getPrice());
+    query.bind(6, item.getCurrency());
+    query.bind(7, item.getUnit());
+    query.bind(8, item.getCategory());
+    query.bind(9, static_cast<int64_t>(item.getCreatedAt()));
+    query.bind(10, static_cast<int64_t>(item.getModifiedAt()));
+    query.exec();
+}
+
+// Update an existing item in the database
+void Inventory::updateItemInDB(const Item& item) {
+    saveItem(item);  // INSERT OR REPLACE handles both
 }
 
 // Batch operations
@@ -151,86 +206,6 @@ int Inventory::totalQuantity() const {
     int total = 0;
     for (const auto &[id, item] : items) total += item.getQuantity();
     return total;
-}
-
-// -----------------------------
-// JSON implementation
-// -----------------------------
-void Inventory::fromJSON(const std::string &jsonData) {
-    if (jsonData.empty()) return;
-    
-    // Parse JSON array
-    std::string trimmed = jsonData;
-    // Remove leading/trailing whitespace
-    trimmed.erase(0, trimmed.find_first_not_of(" \t\n\r"));
-    trimmed.erase(trimmed.find_last_not_of(" \t\n\r") + 1);
-    
-    if (trimmed.empty() || trimmed[0] != '[') {
-        // Try to parse as single object
-        if (trimmed[0] == '{') {
-            addItem(Item::fromJSON(trimmed));
-        }
-        return;
-    }
-    
-    // Parse array
-    size_t pos = 1; 
-    while (pos < trimmed.length()) {
-        // Skip whitespace
-        while (pos < trimmed.length() && (trimmed[pos] == ' ' || trimmed[pos] == '\t' || trimmed[pos] == '\n' || trimmed[pos] == '\r')) {
-            pos++;
-        }
-        
-        if (pos >= trimmed.length() || trimmed[pos] == ']') break;
-        
-        // Find object start
-        if (trimmed[pos] != '{') {
-            pos++;
-            continue;
-        }
-        
-        // Find matching closing brace
-        size_t objStart = pos;
-        int braceCount = 0;
-        size_t objEnd = pos;
-        
-        for (size_t i = pos; i < trimmed.length(); i++) {
-            if (trimmed[i] == '{') braceCount++;
-            else if (trimmed[i] == '}') {
-                braceCount--;
-                if (braceCount == 0) {
-                    objEnd = i;
-                    break;
-                }
-            }
-        }
-        
-        if (braceCount == 0) {
-            std::string objStr = trimmed.substr(objStart, objEnd - objStart + 1);
-            addItem(Item::fromJSON(objStr));
-            pos = objEnd + 1;
-        } else {
-            break;
-        }
-        
-        // Skip comma and whitespace
-        while (pos < trimmed.length() && (trimmed[pos] == ',' || trimmed[pos] == ' ' || trimmed[pos] == '\t' || trimmed[pos] == '\n' || trimmed[pos] == '\r')) {
-            pos++;
-        }
-    }
-}
-
-std::string Inventory::toJSON() const {
-    std::stringstream ss;
-    ss << "[";
-    bool first = true;
-    for (const auto &[id, item] : items) {
-        if (!first) ss << ",";
-        ss << item.toJSON();
-        first = false;
-    }
-    ss << "]";
-    return ss.str();
 }
 
 // -----------------------------

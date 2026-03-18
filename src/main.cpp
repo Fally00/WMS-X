@@ -1,15 +1,15 @@
 // main.cpp — entry point for WMS CLI
-#include "WmsControllers.h"
-#include "output.h"
+#include "controllers/WmsControllers.h"
+#include "output/output.h"
 
 // VISUAL: CLI argument parsing (help/version/no-color).
-#include "cli.h"
+#include "cli/cli.h"
 
-#include "registry.hpp"            // CommandRegistry
-#include "parser.hpp"             // tokenize()
-#include "command.hpp"           // ICommand
-#include "addComand.hpp"        // Command implementations (add/remove/etc)
-#include "CommandContext.hpp"  // CommandContext
+#include "commands/registry.hpp"            // CommandRegistry
+#include "utils/parser.hpp"             // tokenize()
+#include "commands/command.hpp"           // ICommand
+#include "commands/addComand.hpp"        // Command implementations (add/remove/etc)
+#include "commands/CommandContext.hpp"  // CommandContext
 
 //libraries for work
 #include <algorithm>
@@ -91,7 +91,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Initialize system
-    WmsControllers wms("inventory_data.json");
+    WmsControllers wms("inventory.db");
     if (!wms.initializeSystem()) {
         OutputFormatter::printError("Failed to initialize WMS. Exiting.");
         return 1;
