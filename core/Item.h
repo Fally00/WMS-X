@@ -57,6 +57,9 @@ public:
     std::time_t getModifiedAt() const;
     void changeQuantity(int delta);
     void setLocation(const std::string& loc);
+    void setName(const std::string& n);
+    void setQuantity(int qty);
+    void setPrice(double p);
 
     bool operator==(const Item& o) const;
     bool operator<(const Item& o) const;
