@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
     OutputFormatter::initialize(enableColor);
 
     OutputFormatter::printLogo();
-    OutputFormatter::printInfo("Warehouse Management System (WMS-X) v1.4.1");
+    OutputFormatter::printInfo("Warehouse Management System (WMS-X) v1.5.0 Stable DB Edition");
     OutputFormatter::printInfo("Type 'help' for commands, 'exit' to quit.");
 
     const std::vector<std::pair<std::string, std::string>> commands = {

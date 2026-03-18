@@ -127,12 +127,10 @@ bool OutputFormatter::isColorEnabled() { return useColor; }
 // ─────────────────────────────────────────────
 void OutputFormatter::printBanner() {
     const char* banner =
-        " _    ____  ___ _____                        \n"
-        "| |  | |  \\//  |/  ___|                     \n"
-        "| |  | | .  . |\\ `--. __________            \n"
-        "| |/\\| | |\\/| | `--. \\______\\ \\/ /      \n"
-        "\\  /\\  / |  | |/\\__/ /        > <        \n"
-        " \\/  \\/ \\_|  |_/\\____/      /_/\\_\\     \n";
+        " _    _  __  __  ___      _  _ \n"
+        "( \\/\\/ )(  \\/  )/ __) ___( \\/ )\n"
+        " )    (  )    ( \\__ \\(___))  ( \n"
+        "(__/\\__)(_/\\/\\_)(___/    (_/\\_)\n";
 
     setColor(Color::Cyan);
     write(std::string("\n") + banner + "\n");
@@ -142,7 +140,7 @@ void OutputFormatter::printBanner() {
 void OutputFormatter::printLogo(const std::string&) {
     printBanner();
     setColor(Color::Cyan);
-    write("WMS-X 1.4.1\n");
+    write("WMS-X 1.5.0 Stable DB Edition\n");
     resetColor();
 }
 
