@@ -65,6 +65,7 @@ public:
     void listItems(size_t page = 0, size_t pageSize = 10);
     std::optional<Item> getItem(int id);
     std::vector<Item> searchByName(const std::string& query);
+    std::vector<Item> getAllItems();
 
     // Receipt support — expose DB for receipt operations
     SQLite::Database& getDB();

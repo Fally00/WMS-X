@@ -104,6 +104,10 @@ std::vector<Item> WmsControllers::searchByName(const std::string& query) {
     return inventory.searchByName(query);
 }
 
+std::vector<Item> WmsControllers::getAllItems() {
+    return inventory.getAllItems();
+}
+
 SQLite::Database& WmsControllers::getDB() {
     return storage.getDB();
 }
