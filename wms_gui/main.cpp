@@ -1,14 +1,18 @@
 #include "main.h"
 #include "ui_main.h"
 
-#include <QMessageBox>
-#include <QInputDialog>
-#include <QDialog>
-#include <QFormLayout>
 #include <QDialogButtonBox>
-#include <QDateTime>
-#include <QString>
+#include <QDoubleSpinBox>
+#include <QInputDialog>
 #include <QHeaderView>
+#include <QFormLayout>
+#include <QMessageBox>
+#include <algorithm>
+#include <QDateTime>
+#include <QSpinBox>
+#include <QDialog>
+#include <QString>
+#include <QLabel>
 
 // ─── Constructor ─────────────────────────────────────────────────────────────
 Main::Main(QWidget *parent)
@@ -38,6 +42,9 @@ Main::Main(QWidget *parent)
     connect(ui->deleteBtn,  &QPushButton::clicked, this, &Main::onDeleteItem);
     connect(ui->searchBtn,  &QPushButton::clicked, this, &Main::onSearch);
     connect(ui->searchLineEdit, &QLineEdit::returnPressed, this, &Main::onSearch);
+    connect(ui->queueTaskBtn,      &QPushButton::clicked, this, &Main::onQueueTask);
+    connect(ui->runQueueBtn,       &QPushButton::clicked, this, &Main::onRunQueue);
+    connect(ui->generateReceiptBtn,&QPushButton::clicked, this, &Main::onGenerateReceipt);
 }
 
 Main::~Main()
@@ -237,4 +244,158 @@ void Main::onSearch()
         ui->statusbar->showMessage(
             QString("%1 result(s) found.").arg(results.size()), 3000);
     }
+
+    // Clear selection after search
+    ui->inventoryTable->clearSelection();
+}
+    int Main::onQueueTask()
+{
+    bool ok = false;
+    QString raw = QInputDialog::getText(
+        this,
+        "Queue Task",
+        "Enter command to queue (example: ADD 101 \"Widget\" 5 A1):",
+        QLineEdit::Normal,
+        QString(),
+        &ok
+    ).trimmed();
+
+    if (!ok || raw.isEmpty()) return;
+
+    int splitIndex = -1;
+    for (int i = 0; i < raw.size(); ++i) {
+        if (raw.at(i).isSpace()) {
+            splitIndex = i;
+            break;
+        }
+    }
+
+    if (splitIndex < 0) {
+        raw = raw.toUpper();
+    } else {
+        raw = raw.left(splitIndex).toUpper() + raw.mid(splitIndex);
+    }
+
+    wmsController.enqueueTask(raw.toStdString());
+    ui->statusbar->showMessage(
+        QString("Task queued. Queue size: %1").arg(wmsController.queueSize()),
+        3000
+    );
+}
+
+void Main::onRunQueue()
+{
+    const size_t queued = wmsController.queueSize();
+    if (queued == 0) {
+        ui->statusbar->showMessage("Queue is empty.", 3000);
+        return;
+    }
+
+    wmsController.processTasks(0);
+    loadInventory();
+    ui->statusbar->showMessage(
+        QString("Processed %1 queued task(s).").arg(static_cast<qulonglong>(queued)),
+        3000
+    );
+}
+
+void Main::onGenerateReceipt()
+{
+    const int selectedRow = ui->inventoryTable->currentRow();
+    if (selectedRow < 0) {
+        QMessageBox::information(this, "No Selection", "Please select a row first.");
+        return;
+    }
+
+    const int itemId = ui->inventoryTable->item(selectedRow, 0)->text().toInt();
+    auto item = wmsController.getItem(itemId);
+    if (!item) {
+        QMessageBox::warning(this, "Missing Item", "The selected item could not be loaded.");
+        return;
+    }
+
+    if (item->getQuantity() <= 0) {
+        QMessageBox::warning(this, "Out of Stock", "This item has no stock available.");
+        return;
+    }
+
+    QDialog dialog(this);
+    dialog.setWindowTitle(QString("Generate Receipt for #%1").arg(item->getId()));
+    QFormLayout form(&dialog);
+
+    QSpinBox quantitySpin(&dialog);
+    quantitySpin.setRange(1, item->getQuantity());
+    quantitySpin.setValue(1);
+
+    QDoubleSpinBox priceSpin(&dialog);
+    priceSpin.setDecimals(2);
+    priceSpin.setRange(0.0, 1000000000.0);
+    priceSpin.setValue(item->getPrice());
+
+    QLineEdit customerEdit(&dialog);
+
+    form.addRow("Item:", new QLabel(QString::fromStdString(item->getName()), &dialog));
+    form.addRow("Quantity:", &quantitySpin);
+    form.addRow("Unit price:", &priceSpin);
+    form.addRow("Customer:", &customerEdit);
+
+    QDialogButtonBox buttons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
+                             Qt::Horizontal, &dialog);
+    form.addRow(&buttons);
+    connect(&buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(&buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    if (dialog.exec() != QDialog::Accepted) return;
+
+    const int quantity = quantitySpin.value();
+    const double unitPrice = priceSpin.value();
+    if (quantity <= 0 || unitPrice < 0.0 || quantity > item->getQuantity()) {
+        QMessageBox::warning(this, "Invalid Input", "Please enter a valid quantity and price.");
+        return;
+    }
+
+    Receipt receipt;
+    if (!customerEdit.text().trimmed().isEmpty()) {
+        receipt.setCustomer(customerEdit.text().trimmed().toStdString());
+    }
+
+    try {
+        receipt.addItem(*item, quantity, unitPrice);
+        receipt.saveToDB(wmsController.getDB());
+    } catch (const std::exception& e) {
+        QMessageBox::warning(
+            this,
+            "Receipt Failed",
+            QString("Could not save receipt: %1").arg(e.what())
+        );
+        return;
+    }
+
+    if (!wmsController.adjustStock(item->getId(), -quantity)) {
+        QMessageBox::warning(
+            this,
+            "Stock Warning",
+            "Receipt was saved, but stock could not be deducted."
+        );
+        loadInventory();
+        return;
+    }
+
+    loadInventory();
+    const QString receiptNumber = QString::fromStdString(receipt.getReceiptNumber());
+    ui->statusbar->showMessage(QString("Receipt %1 saved.").arg(receiptNumber), 4000);
+    QMessageBox::information(
+        this,
+        "Receipt Saved",
+        QString("Receipt %1 was generated successfully.").arg(receiptNumber)
+    );
+}
+
+
+int main(int argc, char *argv[])
+{
+    QApplication app(argc, argv);
+    Main window;
+    window.show();
+    return app.exec();
 }

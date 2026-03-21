@@ -28,6 +28,9 @@ private slots:
     void onUpdateItem();
     void onDeleteItem();
     void onSearch();
+    void onQueueTask();
+    void onRunQueue();
+    void onGenerateReceipt();
 
 private:
     Ui::Main *ui;

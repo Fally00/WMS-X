@@ -25,6 +25,7 @@ set(BACKEND_SOURCES
     "${BACKEND_SRC_DIR}/storage/Storage.cpp"
     "${BACKEND_SRC_DIR}/storage/Receipt.cpp"
     "${BACKEND_SRC_DIR}/controllers/WmsControllers.cpp"
+    "${BACKEND_SRC_DIR}/output/output.cpp"
 )
 
 # ── GUI executable ────────────────────────────────────────────────────────────
