@@ -1,14 +1,23 @@
 #include "main.h"
 #include "ui_main.h"
 
-#include <QMessageBox>
-#include <QInputDialog>
-#include <QDialog>
-#include <QFormLayout>
 #include <QDialogButtonBox>
-#include <QDateTime>
-#include <QString>
+#include <QDoubleSpinBox>
+#include <QInputDialog>
+#include <QFileDialog>
 #include <QHeaderView>
+#include <QFormLayout>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QMessageBox>
+#include <QTextStream>
+#include <algorithm>
+#include <QDateTime>
+#include <QSpinBox>
+#include <QDialog>
+#include <QString>
+#include <QLabel>
+#include <QFile>
 
 // ─── Constructor ─────────────────────────────────────────────────────────────
 Main::Main(QWidget *parent)
@@ -38,11 +47,24 @@ Main::Main(QWidget *parent)
     connect(ui->deleteBtn,  &QPushButton::clicked, this, &Main::onDeleteItem);
     connect(ui->searchBtn,  &QPushButton::clicked, this, &Main::onSearch);
     connect(ui->searchLineEdit, &QLineEdit::returnPressed, this, &Main::onSearch);
+    connect(ui->queueTaskBtn,      &QPushButton::clicked, this, &Main::onQueueTask);
+    connect(ui->runQueueBtn,       &QPushButton::clicked, this, &Main::onRunQueue);
+    connect(ui->receiptBtn,        &QPushButton::clicked, this, &Main::onGenerateReceipt);
+    connect(ui->receiptHistoryBtn, &QPushButton::clicked, this, &Main::onReceiptHistory);
+    connect(ui->exportCsvBtn,      &QPushButton::clicked, this, &Main::onExportCSV);
 }
 
 Main::~Main()
 {
     delete ui;
+}
+
+// ─── Helper: item status based on quantity ───────────────────────────────────
+QString Main::itemStatus(int quantity) const
+{
+    if (quantity <= 0)  return "Out of Stock";
+    if (quantity <= 10) return "Low Stock";
+    return "Available";
 }
 
 // ─── Load all items from the controller into the table ───────────────────────
@@ -71,8 +93,21 @@ void Main::populateTable(const std::vector<Item>& items)
         table->setItem(row, 5,  new QTableWidgetItem(QString::fromStdString(item.getCurrency())));
         table->setItem(row, 6,  new QTableWidgetItem(QString::fromStdString(item.getUnit())));
         table->setItem(row, 7,  new QTableWidgetItem(QString::fromStdString(item.getCategory())));
-        table->setItem(row, 8,  new QTableWidgetItem(formatTime(item.getCreatedAt())));
-        table->setItem(row, 9,  new QTableWidgetItem(formatTime(item.getModifiedAt())));
+
+        // Status column based on quantity
+        const QString status = itemStatus(item.getQuantity());
+        auto* statusItem = new QTableWidgetItem(status);
+        if (status == "Out of Stock") {
+            statusItem->setForeground(QBrush(QColor(220, 50, 50)));
+        } else if (status == "Low Stock") {
+            statusItem->setForeground(QBrush(QColor(230, 160, 0)));
+        } else {
+            statusItem->setForeground(QBrush(QColor(40, 180, 60)));
+        }
+        table->setItem(row, 8, statusItem);
+
+        table->setItem(row, 9,  new QTableWidgetItem(formatTime(item.getCreatedAt())));
+        table->setItem(row, 10, new QTableWidgetItem(formatTime(item.getModifiedAt())));
     }
 }
 
@@ -237,4 +272,462 @@ void Main::onSearch()
         ui->statusbar->showMessage(
             QString("%1 result(s) found.").arg(results.size()), 3000);
     }
+
+    // Clear selection after search
+    ui->inventoryTable->clearSelection();
+}
+
+// ─── Slot: Queue Task ────────────────────────────────────────────────────────
+void Main::onQueueTask()
+{
+    bool ok = false;
+    QString raw = QInputDialog::getText(
+        this,
+        "Queue Task",
+        "Enter command to queue (example: ADD 101 \"Widget\" 5 A1):",
+        QLineEdit::Normal,
+        QString(),
+        &ok
+    ).trimmed();
+
+    if (!ok || raw.isEmpty()) return;
+
+    int splitIndex = -1;
+    for (int i = 0; i < raw.size(); ++i) {
+        if (raw.at(i).isSpace()) {
+            splitIndex = i;
+            break;
+        }
+    }
+
+    if (splitIndex < 0) {
+        raw = raw.toUpper();
+    } else {
+        raw = raw.left(splitIndex).toUpper() + raw.mid(splitIndex);
+    }
+
+    wmsController.enqueueTask(raw.toStdString());
+    ui->statusbar->showMessage(
+        QString("Task queued. Queue size: %1").arg(wmsController.queueSize()),
+        3000
+    );
+}
+
+// ─── Slot: Run Queue ─────────────────────────────────────────────────────────
+void Main::onRunQueue()
+{
+    const size_t queued = wmsController.queueSize();
+    if (queued == 0) {
+        ui->statusbar->showMessage("Queue is empty.", 3000);
+        return;
+    }
+
+    wmsController.processTasks(0);
+    wmsController.reloadInventory();   // Force DB → memory re-sync
+    loadInventory();
+    ui->statusbar->showMessage(
+        QString("Processed %1 queued task(s).").arg(static_cast<qulonglong>(queued)),
+        3000
+    );
+}
+
+// ─── Receipt preview dialog ─────────────────────────────────────────────────
+void Main::showReceiptPreview(const Receipt& receipt)
+{
+    QDialog preview(this);
+    preview.setWindowTitle(QString("Receipt %1").arg(
+        QString::fromStdString(receipt.getReceiptNumber())));
+    preview.setMinimumSize(500, 400);
+
+    auto* layout = new QVBoxLayout(&preview);
+
+    // Header info
+    auto* headerLabel = new QLabel(
+        QString("<b>Receipt:</b> %1<br>"
+                "<b>Subtotal:</b> %2<br>"
+                "<b>Tax (14%):</b> %3<br>"
+                "<b>Total:</b> %4")
+            .arg(QString::fromStdString(receipt.getReceiptNumber()))
+            .arg(receipt.subtotal(), 0, 'f', 2)
+            .arg(receipt.tax(), 0, 'f', 2)
+            .arg(receipt.total(), 0, 'f', 2),
+        &preview);
+    layout->addWidget(headerLabel);
+
+    // Items table — we'll load from DB for this receipt
+    auto* table = new QTableWidget(&preview);
+    table->setColumnCount(5);
+    table->setHorizontalHeaderLabels({"Item ID", "Name", "Qty", "Unit Price", "Line Total"});
+    table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+
+    // Load items for this receipt from DB
+    try {
+        SQLite::Statement itemQuery(wmsController.getDB(),
+            "SELECT item_id, name, quantity, unit_price, line_total "
+            "FROM receipt_items WHERE receipt_number = ?");
+        itemQuery.bind(1, receipt.getReceiptNumber());
+
+        while (itemQuery.executeStep()) {
+            int row = table->rowCount();
+            table->insertRow(row);
+            table->setItem(row, 0, new QTableWidgetItem(QString::number(itemQuery.getColumn(0).getInt())));
+            table->setItem(row, 1, new QTableWidgetItem(QString::fromStdString(itemQuery.getColumn(1).getString())));
+            table->setItem(row, 2, new QTableWidgetItem(QString::number(itemQuery.getColumn(2).getInt())));
+            table->setItem(row, 3, new QTableWidgetItem(QString::number(itemQuery.getColumn(3).getDouble(), 'f', 2)));
+            table->setItem(row, 4, new QTableWidgetItem(QString::number(itemQuery.getColumn(4).getDouble(), 'f', 2)));
+        }
+    } catch (...) {
+        // Table stays empty if query fails
+    }
+
+    layout->addWidget(table);
+
+    // Close button
+    auto* closeBtn = new QPushButton("Close", &preview);
+    connect(closeBtn, &QPushButton::clicked, &preview, &QDialog::accept);
+    layout->addWidget(closeBtn);
+
+    preview.exec();
+}
+
+// ─── Slot: Generate Receipt (multi-item) ─────────────────────────────────────
+void Main::onGenerateReceipt()
+{
+    // Collect all selected rows
+    QList<int> selectedRows;
+    const auto selectedItems = ui->inventoryTable->selectionModel()->selectedRows();
+    for (const auto& idx : selectedItems) {
+        selectedRows.append(idx.row());
+    }
+
+    if (selectedRows.isEmpty()) {
+        QMessageBox::information(this, "No Selection",
+            "Please select one or more rows to generate a receipt.");
+        return;
+    }
+
+    // Gather items from the selected rows
+    struct SelectedItem {
+        int id;
+        QString name;
+        int maxQty;
+        double price;
+    };
+    QList<SelectedItem> itemList;
+
+    for (int row : selectedRows) {
+        SelectedItem si;
+        si.id     = ui->inventoryTable->item(row, 0)->text().toInt();
+        si.name   = ui->inventoryTable->item(row, 1)->text();
+        si.maxQty = ui->inventoryTable->item(row, 2)->text().toInt();
+        si.price  = ui->inventoryTable->item(row, 4)->text().toDouble();
+        if (si.maxQty <= 0) continue; // skip out-of-stock items
+        itemList.append(si);
+    }
+
+    if (itemList.isEmpty()) {
+        QMessageBox::warning(this, "Out of Stock",
+            "All selected items are out of stock.");
+        return;
+    }
+
+    // Dialog: let user set qty/price per item + customer
+    QDialog dialog(this);
+    dialog.setWindowTitle("Generate Receipt");
+    dialog.setMinimumWidth(450);
+    auto* mainLayout = new QVBoxLayout(&dialog);
+
+    // Customer name
+    auto* customerLayout = new QHBoxLayout();
+    customerLayout->addWidget(new QLabel("Customer:", &dialog));
+    auto* customerEdit = new QLineEdit(&dialog);
+    customerLayout->addWidget(customerEdit);
+    mainLayout->addLayout(customerLayout);
+
+    // Items table with editable qty/price
+    auto* itemTable = new QTableWidget(itemList.size(), 4, &dialog);
+    itemTable->setHorizontalHeaderLabels({"Item", "Max Qty", "Quantity", "Unit Price"});
+    itemTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+
+    QList<QSpinBox*> qtySpins;
+    QList<QDoubleSpinBox*> priceSpins;
+
+    for (int i = 0; i < itemList.size(); ++i) {
+        const auto& si = itemList[i];
+        itemTable->setItem(i, 0, new QTableWidgetItem(
+            QString("#%1 %2").arg(si.id).arg(si.name)));
+        itemTable->setItem(i, 1, new QTableWidgetItem(QString::number(si.maxQty)));
+
+        auto* qtySpin = new QSpinBox(&dialog);
+        qtySpin->setRange(1, si.maxQty);
+        qtySpin->setValue(1);
+        itemTable->setCellWidget(i, 2, qtySpin);
+        qtySpins.append(qtySpin);
+
+        auto* priceSpin = new QDoubleSpinBox(&dialog);
+        priceSpin->setDecimals(2);
+        priceSpin->setRange(0.0, 1000000000.0);
+        priceSpin->setValue(si.price);
+        itemTable->setCellWidget(i, 3, priceSpin);
+        priceSpins.append(priceSpin);
+    }
+
+    mainLayout->addWidget(itemTable);
+
+    QDialogButtonBox buttons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
+                             Qt::Horizontal, &dialog);
+    mainLayout->addWidget(&buttons);
+    connect(&buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(&buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    if (dialog.exec() != QDialog::Accepted) return;
+
+    // Build the receipt
+    Receipt receipt;
+    if (!customerEdit->text().trimmed().isEmpty()) {
+        receipt.setCustomer(customerEdit->text().trimmed().toStdString());
+    }
+
+    try {
+        for (int i = 0; i < itemList.size(); ++i) {
+            auto item = wmsController.getItem(itemList[i].id);
+            if (!item) continue;
+
+            int qty = qtySpins[i]->value();
+            double price = priceSpins[i]->value();
+            receipt.addItem(*item, qty, price);
+        }
+
+        receipt.saveToDB(wmsController.getDB());
+    } catch (const std::exception& e) {
+        QMessageBox::warning(this, "Receipt Failed",
+            QString("Could not save receipt: %1").arg(e.what()));
+        return;
+    }
+
+    // Deduct stock for each item
+    bool stockWarning = false;
+    for (int i = 0; i < itemList.size(); ++i) {
+        int qty = qtySpins[i]->value();
+        if (!wmsController.adjustStock(itemList[i].id, -qty)) {
+            stockWarning = true;
+        }
+    }
+
+    loadInventory();
+
+    if (stockWarning) {
+        QMessageBox::warning(this, "Stock Warning",
+            "Receipt saved, but stock could not be deducted for some items.");
+    }
+
+    ui->statusbar->showMessage(
+        QString("Receipt %1 saved.").arg(
+            QString::fromStdString(receipt.getReceiptNumber())), 4000);
+
+    // Show the receipt preview
+    showReceiptPreview(receipt);
+}
+
+// ─── Slot: Receipt History ───────────────────────────────────────────────────
+void Main::onReceiptHistory()
+{
+    std::vector<Receipt> receipts;
+    try {
+        receipts = Receipt::loadHistory(wmsController.getDB());
+    } catch (const std::exception& e) {
+        QMessageBox::warning(this, "Error",
+            QString("Could not load receipts: %1").arg(e.what()));
+        return;
+    }
+
+    if (receipts.empty()) {
+        QMessageBox::information(this, "No Receipts", "No receipts have been generated yet.");
+        return;
+    }
+
+    QDialog dialog(this);
+    dialog.setWindowTitle("Receipt History");
+    dialog.setMinimumSize(600, 400);
+    auto* layout = new QVBoxLayout(&dialog);
+
+    auto* table = new QTableWidget(static_cast<int>(receipts.size()), 3, &dialog);
+    table->setHorizontalHeaderLabels({"Receipt #", "Customer", "Total"});
+    table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    table->setSelectionBehavior(QAbstractItemView::SelectRows);
+    table->setSelectionMode(QAbstractItemView::SingleSelection);
+
+    for (int i = 0; i < static_cast<int>(receipts.size()); ++i) {
+        const auto& r = receipts[static_cast<size_t>(i)];
+        table->setItem(i, 0, new QTableWidgetItem(
+            QString::fromStdString(r.getReceiptNumber())));
+        // Customer name is private, load from DB query
+        try {
+            SQLite::Statement q(wmsController.getDB(),
+                "SELECT customer_name, total FROM receipts WHERE receipt_number = ?");
+            q.bind(1, r.getReceiptNumber());
+            if (q.executeStep()) {
+                table->setItem(i, 1, new QTableWidgetItem(
+                    QString::fromStdString(q.getColumn(0).getString())));
+                table->setItem(i, 2, new QTableWidgetItem(
+                    QString::number(q.getColumn(1).getDouble(), 'f', 2)));
+            }
+        } catch (...) {
+            table->setItem(i, 1, new QTableWidgetItem("—"));
+            table->setItem(i, 2, new QTableWidgetItem(
+                QString::number(r.total(), 'f', 2)));
+        }
+    }
+
+    layout->addWidget(table);
+
+    // Buttons
+    auto* btnLayout = new QHBoxLayout();
+    auto* viewBtn  = new QPushButton("View Receipt", &dialog);
+    auto* closeBtn = new QPushButton("Close", &dialog);
+    btnLayout->addWidget(viewBtn);
+    btnLayout->addStretch();
+    btnLayout->addWidget(closeBtn);
+    layout->addLayout(btnLayout);
+
+    connect(closeBtn, &QPushButton::clicked, &dialog, &QDialog::accept);
+
+    // View selected receipt
+    connect(viewBtn, &QPushButton::clicked, [&]() {
+        int row = table->currentRow();
+        if (row < 0) {
+            QMessageBox::information(&dialog, "No Selection", "Please select a receipt.");
+            return;
+        }
+        showReceiptPreview(receipts[static_cast<size_t>(row)]);
+    });
+
+    // Double-click to view
+    connect(table, &QTableWidget::cellDoubleClicked, [&](int row, int) {
+        if (row >= 0 && row < static_cast<int>(receipts.size())) {
+            showReceiptPreview(receipts[static_cast<size_t>(row)]);
+        }
+    });
+
+    dialog.exec();
+}
+
+// ─── Slot: Export CSV ────────────────────────────────────────────────────────
+void Main::onExportCSV()
+{
+    std::vector<Receipt> receipts;
+    try {
+        receipts = Receipt::loadHistory(wmsController.getDB());
+    } catch (const std::exception& e) {
+        QMessageBox::warning(this, "Error",
+            QString("Could not load receipts: %1").arg(e.what()));
+        return;
+    }
+
+    if (receipts.empty()) {
+        QMessageBox::information(this, "No Receipts",
+            "No receipts to export.");
+        return;
+    }
+
+    QString filePath = QFileDialog::getSaveFileName(
+        this, "Export Receipts to CSV", "receipts.csv",
+        "CSV Files (*.csv);;All Files (*)");
+
+    if (filePath.isEmpty()) return;
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QMessageBox::warning(this, "File Error",
+            "Could not open file for writing.");
+        return;
+    }
+
+    QTextStream out(&file);
+
+    // Header
+    out << "Receipt Number,Customer,Item ID,Item Name,Location,"
+           "Quantity,Unit Price,Line Total,Subtotal,Tax,Total\n";
+
+    // For each receipt, load its items and write rows
+    for (const auto& r : receipts) {
+        const QString rcptNum = QString::fromStdString(r.getReceiptNumber());
+        QString customer = "";
+        double subtotal = 0, tax = 0, total = 0;
+
+        // Get receipt header from DB
+        try {
+            SQLite::Statement hq(wmsController.getDB(),
+                "SELECT customer_name, subtotal, tax, total "
+                "FROM receipts WHERE receipt_number = ?");
+            hq.bind(1, r.getReceiptNumber());
+            if (hq.executeStep()) {
+                customer = QString::fromStdString(hq.getColumn(0).getString());
+                subtotal = hq.getColumn(1).getDouble();
+                tax      = hq.getColumn(2).getDouble();
+                total    = hq.getColumn(3).getDouble();
+            }
+        } catch (...) {}
+
+        // Get line items
+        try {
+            SQLite::Statement iq(wmsController.getDB(),
+                "SELECT item_id, name, location, quantity, unit_price, line_total "
+                "FROM receipt_items WHERE receipt_number = ?");
+            iq.bind(1, r.getReceiptNumber());
+
+            bool firstLine = true;
+            while (iq.executeStep()) {
+                // Escape customer name for CSV (wrap in quotes if it contains commas)
+                QString safeCustomer = customer;
+                if (safeCustomer.contains(',') || safeCustomer.contains('"')) {
+                    safeCustomer = "\"" + safeCustomer.replace("\"", "\"\"") + "\"";
+                }
+
+                out << rcptNum << ","
+                    << safeCustomer << ","
+                    << iq.getColumn(0).getInt() << ","
+                    << QString::fromStdString(iq.getColumn(1).getString()).replace(",", " ") << ","
+                    << QString::fromStdString(iq.getColumn(2).getString()).replace(",", " ") << ","
+                    << iq.getColumn(3).getInt() << ","
+                    << QString::number(iq.getColumn(4).getDouble(), 'f', 2) << ","
+                    << QString::number(iq.getColumn(5).getDouble(), 'f', 2) << ",";
+
+                if (firstLine) {
+                    out << QString::number(subtotal, 'f', 2) << ","
+                        << QString::number(tax, 'f', 2) << ","
+                        << QString::number(total, 'f', 2);
+                    firstLine = false;
+                } else {
+                    out << ",,";
+                }
+                out << "\n";
+            }
+
+            // Receipt with no items (edge case)
+            if (firstLine) {
+                out << rcptNum << "," << customer << ",,,,,,,"
+                    << QString::number(subtotal, 'f', 2) << ","
+                    << QString::number(tax, 'f', 2) << ","
+                    << QString::number(total, 'f', 2) << "\n";
+            }
+        } catch (...) {}
+    }
+
+    file.close();
+    ui->statusbar->showMessage(
+        QString("Exported %1 receipt(s) to %2").arg(receipts.size()).arg(filePath), 4000);
+    QMessageBox::information(this, "Export Complete",
+        QString("Receipts exported to:\n%1").arg(filePath));
+}
+
+
+int main(int argc, char *argv[])
+{
+    QApplication app(argc, argv);
+    Main window;
+    window.show();
+    return app.exec();
 }
