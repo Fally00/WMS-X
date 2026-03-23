@@ -215,3 +215,7 @@ void WmsControllers::processTasks(size_t limit) {
         done++;
     }
 }
+
+void WmsControllers::reloadInventory() {
+    inventory.loadAll();
+}

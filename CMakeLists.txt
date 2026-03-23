@@ -27,4 +27,5 @@ target_include_directories(wms PRIVATE
     "${VENDOR_DIR}/SQLiteCpp/sqlite3"
 )
 
-target_link_libraries(wms PRIVATE SQLiteCpp pthread)
+find_package(Threads REQUIRED)
+target_link_libraries(wms PRIVATE SQLiteCpp Threads::Threads)

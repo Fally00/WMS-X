@@ -8,6 +8,7 @@
 #include <QStatusBar>
 
 #include "controllers/WmsControllers.h"
+#include "storage/Receipt.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -31,6 +32,8 @@ private slots:
     void onQueueTask();
     void onRunQueue();
     void onGenerateReceipt();
+    void onReceiptHistory();
+    void onExportCSV();
 
 private:
     Ui::Main *ui;
@@ -39,6 +42,8 @@ private:
     void loadInventory();
     void populateTable(const std::vector<Item>& items);
     QString formatTime(std::time_t t) const;
+    QString itemStatus(int quantity) const;
+    void showReceiptPreview(const Receipt& receipt);
 };
 
 #endif // MAIN_H

@@ -74,4 +74,5 @@ public:
     void processTasks(size_t limit = 0); // limit=0 → all
 
     size_t queueSize() const;
+    void reloadInventory();
 };

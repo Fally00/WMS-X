@@ -14,10 +14,11 @@ wms.log
 
 # Build directories
 build/
-temp/
+wms_gui/build/
 
 # IDE / Editor
 .vscode/
+.qtcreator/
 
 # OS junk
 .DS_Store
