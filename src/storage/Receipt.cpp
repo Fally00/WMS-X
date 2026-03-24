@@ -6,6 +6,7 @@
 #include <sstream>
 #include <iomanip>
 #include <random>
+#include <ctime>
 
 using namespace std;
 
@@ -107,6 +108,14 @@ string Receipt::getReceiptNumber() const {
     return receiptNumber;
 }
 
+string Receipt::getCustomerName() const {
+    return customerName;
+}
+
+chrono::system_clock::time_point Receipt::getTimestamp() const {
+    return timestamp;
+}
+
 // ─────────────────────────────────────────────
 // Print
 // ─────────────────────────────────────────────
@@ -179,6 +188,17 @@ void Receipt::saveToDB(SQLite::Database& db) const {
 }
 
 // ─────────────────────────────────────────────
+// Parse a "%Y-%m-%d %H:%M:%S" string back into a time_point
+// ─────────────────────────────────────────────
+static chrono::system_clock::time_point parseTime(const string& str) {
+    tm buf{};
+    istringstream ss(str);
+    ss >> get_time(&buf, "%Y-%m-%d %H:%M:%S");
+    if (ss.fail()) return chrono::system_clock::now(); // fallback
+    return chrono::system_clock::from_time_t(mktime(&buf));
+}
+
+// ─────────────────────────────────────────────
 // Load Receipt History from SQLite
 // ─────────────────────────────────────────────
 vector<Receipt> Receipt::loadHistory(SQLite::Database& db) {
@@ -191,8 +211,7 @@ vector<Receipt> Receipt::loadHistory(SQLite::Database& db) {
     while (query.executeStep()) {
         Receipt receipt;
         receipt.receiptNumber = query.getColumn(0).getString();
-        // timestamp is stored as string — we keep current time for simplicity
-        receipt.timestamp = chrono::system_clock::now();
+        receipt.timestamp = parseTime(query.getColumn(1).getString());
         receipt.customerName = query.getColumn(2).getString();
         receipt.customerPhone = query.getColumn(3).getString();
         receipt.customerEmail = query.getColumn(4).getString();
@@ -217,4 +236,19 @@ vector<Receipt> Receipt::loadHistory(SQLite::Database& db) {
     }
 
     return receipts;
+}
+
+// ─────────────────────────────────────────────
+// Delete a receipt from SQLite
+// ─────────────────────────────────────────────
+void Receipt::deleteFromDB(SQLite::Database& db, const string& receiptNumber) {
+    SQLite::Statement delItems(db,
+        "DELETE FROM receipt_items WHERE receipt_number = ?");
+    delItems.bind(1, receiptNumber);
+    delItems.exec();
+
+    SQLite::Statement delReceipt(db,
+        "DELETE FROM receipts WHERE receipt_number = ?");
+    delReceipt.bind(1, receiptNumber);
+    delReceipt.exec();
 }

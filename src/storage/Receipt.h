@@ -33,12 +33,15 @@ public:
     double total() const;
 
     std::string getReceiptNumber() const;
+    std::string getCustomerName() const;
+    std::chrono::system_clock::time_point getTimestamp() const;
 
     void print() const;
 
     // SQLite persistence
     void saveToDB(SQLite::Database& db) const;
     static std::vector<Receipt> loadHistory(SQLite::Database& db);
+    static void deleteFromDB(SQLite::Database& db, const std::string& receiptNumber);
 
 private:
     std::string receiptNumber;

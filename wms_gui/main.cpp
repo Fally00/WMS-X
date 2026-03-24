@@ -4,6 +4,7 @@
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
 #include <QInputDialog>
+#include <QListWidget>
 #include <QFileDialog>
 #include <QHeaderView>
 #include <QFormLayout>
@@ -11,6 +12,7 @@
 #include <QHBoxLayout>
 #include <QMessageBox>
 #include <QTextStream>
+#include <QTextEdit>
 #include <algorithm>
 #include <QDateTime>
 #include <QSpinBox>
@@ -70,9 +72,9 @@ QString Main::itemStatus(int quantity) const
 // ─── Load all items from the controller into the table ───────────────────────
 void Main::loadInventory()
 {
-    populateTable(wmsController.getAllItems());
-    ui->statusbar->showMessage(QString("Total items: %1").arg(
-        wmsController.getAllItems().size()));
+    auto items = wmsController.getAllItems();
+    ui->statusbar->showMessage(QString("Total items: %1").arg(items.size()));
+    populateTable(items);
 }
 
 // ─── Fill the QTableWidget rows ──────────────────────────────────────────────
@@ -277,40 +279,128 @@ void Main::onSearch()
     ui->inventoryTable->clearSelection();
 }
 
-// ─── Slot: Queue Task ────────────────────────────────────────────────────────
+// ─── Slot: Queue Task — Help Menu ────────────────────────────────────────────
 void Main::onQueueTask()
 {
-    bool ok = false;
-    QString raw = QInputDialog::getText(
-        this,
-        "Queue Task",
-        "Enter command to queue (example: ADD 101 \"Widget\" 5 A1):",
-        QLineEdit::Normal,
-        QString(),
-        &ok
-    ).trimmed();
+    // Command definitions: name, usage, description
+    struct CmdInfo {
+        QString name;
+        QString usage;
+        QString description;
+    };
 
-    if (!ok || raw.isEmpty()) return;
+    const QList<CmdInfo> commands = {
+        { "ADD",
+          "ADD <id> <name> <qty> <location>",
+          "Add a new item to inventory.\nResult: new row appears in the table." },
+        { "REMOVE",
+          "REMOVE <id>",
+          "Remove an item by its ID.\nResult: row is deleted from the table." },
+        { "UPDATE",
+          "UPDATE <id> --name <n> --qty <q> --loc <l> --price <p>",
+          "Update one or more fields of an existing item.\nResult: updated values appear in the table." },
+        { "LIST",
+          "LIST [page] [pageSize]",
+          "List inventory items (paginated, CLI output).\nResult: prints to console; table unchanged." },
+        { "SEARCH",
+          "SEARCH <id>  or  SEARCH --name <query>",
+          "Search for an item by ID or name.\nResult: prints to console; table unchanged." },
+        { "RECEIPT",
+          "RECEIPT <id qty price>... [customer]",
+          "Generate a receipt for one or more items.\nResult: receipt saved to DB, stock deducted." },
+        { "QUEUE",
+          "QUEUE <command...>",
+          "Queue another command for deferred processing." },
+        { "PROCESSQUEUE",
+          "PROCESSQUEUE [limit]",
+          "Process all (or N) queued tasks.\nResult: queued operations executed; table refreshed." },
+    };
 
-    int splitIndex = -1;
-    for (int i = 0; i < raw.size(); ++i) {
-        if (raw.at(i).isSpace()) {
-            splitIndex = i;
-            break;
-        }
+    // Build dialog
+    QDialog dialog(this);
+    dialog.setWindowTitle("Queue Task — Command Help");
+    dialog.setMinimumSize(560, 420);
+    auto* layout = new QVBoxLayout(&dialog);
+
+    layout->addWidget(new QLabel("<b>Select a command to queue:</b>", &dialog));
+
+    // Command list
+    auto* cmdList = new QListWidget(&dialog);
+    for (const auto& cmd : commands) {
+        cmdList->addItem(QString("%1  —  %2").arg(cmd.name, -14).arg(cmd.usage));
     }
+    cmdList->setCurrentRow(0);
+    layout->addWidget(cmdList);
 
-    if (splitIndex < 0) {
-        raw = raw.toUpper();
-    } else {
-        raw = raw.left(splitIndex).toUpper() + raw.mid(splitIndex);
-    }
+    // Description label (updates on selection)
+    auto* descLabel = new QLabel(&dialog);
+    descLabel->setWordWrap(true);
+    descLabel->setStyleSheet("QLabel { background: #2d2d2d; color: #e0e0e0; padding: 8px; border-radius: 4px; font-size: 13px; }");
+    descLabel->setText(commands[0].description);
+    layout->addWidget(descLabel);
 
-    wmsController.enqueueTask(raw.toStdString());
-    ui->statusbar->showMessage(
-        QString("Task queued. Queue size: %1").arg(wmsController.queueSize()),
-        3000
-    );
+    // Arguments input
+    auto* argsLayout = new QHBoxLayout();
+    argsLayout->addWidget(new QLabel("Arguments:", &dialog));
+    auto* argsEdit = new QLineEdit(&dialog);
+    argsEdit->setPlaceholderText("e.g. 101 \"Widget\" 5 A1");
+    argsLayout->addWidget(argsEdit);
+    layout->addLayout(argsLayout);
+
+    // Buttons
+    auto* btnLayout = new QHBoxLayout();
+    auto* queueBtn     = new QPushButton("Queue && Run", &dialog);
+    auto* queueOnlyBtn = new QPushButton("Queue Only", &dialog);
+    auto* cancelBtn    = new QPushButton("Cancel", &dialog);
+    btnLayout->addWidget(queueBtn);
+    btnLayout->addWidget(queueOnlyBtn);
+    btnLayout->addStretch();
+    btnLayout->addWidget(cancelBtn);
+    layout->addLayout(btnLayout);
+
+    // Update description when selection changes
+    connect(cmdList, &QListWidget::currentRowChanged, [&](int row) {
+        if (row >= 0 && row < commands.size())
+            descLabel->setText(commands[row].description);
+    });
+
+    connect(cancelBtn, &QPushButton::clicked, &dialog, &QDialog::reject);
+
+    // Queue & Run: enqueue, process immediately, refresh table
+    connect(queueBtn, &QPushButton::clicked, [&]() {
+        int row = cmdList->currentRow();
+        if (row < 0) return;
+        QString raw = commands[row].name;
+        QString args = argsEdit->text().trimmed();
+        if (!args.isEmpty()) raw += " " + args;
+
+        wmsController.enqueueTask(raw.toStdString());
+        wmsController.processTasks(0);
+        wmsController.reloadInventory();
+        loadInventory();
+
+        ui->statusbar->showMessage(
+            QString("Executed: %1").arg(raw), 4000);
+        dialog.accept();
+    });
+
+    // Queue Only: just enqueue, don't process yet
+    connect(queueOnlyBtn, &QPushButton::clicked, [&]() {
+        int row = cmdList->currentRow();
+        if (row < 0) return;
+        QString raw = commands[row].name;
+        QString args = argsEdit->text().trimmed();
+        if (!args.isEmpty()) raw += " " + args;
+
+        wmsController.enqueueTask(raw.toStdString());
+        ui->statusbar->showMessage(
+            QString("Task queued (%1). Queue size: %2")
+                .arg(raw)
+                .arg(wmsController.queueSize()), 4000);
+        dialog.accept();
+    });
+
+    dialog.exec();
 }
 
 // ─── Slot: Run Queue ─────────────────────────────────────────────────────────
@@ -331,37 +421,57 @@ void Main::onRunQueue()
     );
 }
 
-// ─── Receipt preview dialog ─────────────────────────────────────────────────
+// ─── Receipt preview dialog (monospaced text format) ────────────────────────
 void Main::showReceiptPreview(const Receipt& receipt)
 {
     QDialog preview(this);
     preview.setWindowTitle(QString("Receipt %1").arg(
         QString::fromStdString(receipt.getReceiptNumber())));
-    preview.setMinimumSize(500, 400);
+    preview.setMinimumSize(520, 460);
 
     auto* layout = new QVBoxLayout(&preview);
 
-    // Header info
-    auto* headerLabel = new QLabel(
-        QString("<b>Receipt:</b> %1<br>"
-                "<b>Subtotal:</b> %2<br>"
-                "<b>Tax (14%):</b> %3<br>"
-                "<b>Total:</b> %4")
-            .arg(QString::fromStdString(receipt.getReceiptNumber()))
-            .arg(receipt.subtotal(), 0, 'f', 2)
-            .arg(receipt.tax(), 0, 'f', 2)
-            .arg(receipt.total(), 0, 'f', 2),
-        &preview);
-    layout->addWidget(headerLabel);
+    // Build the receipt text in CLI-style format
+    QString text;
+    text += "=====================================\n";
+    text += "        WMS-X  RECEIPT\n";
+    text += "-------------------------------------\n";
+    text += QString("Receipt : %1\n").arg(QString::fromStdString(receipt.getReceiptNumber()));
 
-    // Items table — we'll load from DB for this receipt
-    auto* table = new QTableWidget(&preview);
-    table->setColumnCount(5);
-    table->setHorizontalHeaderLabels({"Item ID", "Name", "Qty", "Unit Price", "Line Total"});
-    table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-    table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    // Timestamp
+    auto tp = receipt.getTimestamp();
+    qint64 epoch = std::chrono::duration_cast<std::chrono::seconds>(
+        tp.time_since_epoch()).count();
+    text += QString("Date    : %1\n").arg(
+        QDateTime::fromSecsSinceEpoch(epoch).toString("yyyy-MM-dd HH:mm:ss"));
 
-    // Load items for this receipt from DB
+    // Customer / Supplier name
+    QString customer = QString::fromStdString(receipt.getCustomerName());
+    if (!customer.isEmpty()) {
+        text += QString("Customer: %1\n").arg(customer);
+    }
+
+    // Try to load supplier from DB
+    try {
+        SQLite::Statement sq(wmsController.getDB(),
+            "SELECT supplier_name FROM receipts WHERE receipt_number = ?");
+        sq.bind(1, receipt.getReceiptNumber());
+        if (sq.executeStep()) {
+            QString supplier = QString::fromStdString(sq.getColumn(0).getString());
+            if (!supplier.isEmpty())
+                text += QString("Supplier: %1\n").arg(supplier);
+        }
+    } catch (...) {}
+
+    text += "-------------------------------------\n";
+    text += QString("%1%2%3%4%5\n")
+        .arg("ID",    -6)
+        .arg("Name",  -16)
+        .arg("Qty",   -8)
+        .arg("Price", -10)
+        .arg("Total", -10);
+
+    // Load items from DB
     try {
         SQLite::Statement itemQuery(wmsController.getDB(),
             "SELECT item_id, name, quantity, unit_price, line_total "
@@ -369,19 +479,30 @@ void Main::showReceiptPreview(const Receipt& receipt)
         itemQuery.bind(1, receipt.getReceiptNumber());
 
         while (itemQuery.executeStep()) {
-            int row = table->rowCount();
-            table->insertRow(row);
-            table->setItem(row, 0, new QTableWidgetItem(QString::number(itemQuery.getColumn(0).getInt())));
-            table->setItem(row, 1, new QTableWidgetItem(QString::fromStdString(itemQuery.getColumn(1).getString())));
-            table->setItem(row, 2, new QTableWidgetItem(QString::number(itemQuery.getColumn(2).getInt())));
-            table->setItem(row, 3, new QTableWidgetItem(QString::number(itemQuery.getColumn(3).getDouble(), 'f', 2)));
-            table->setItem(row, 4, new QTableWidgetItem(QString::number(itemQuery.getColumn(4).getDouble(), 'f', 2)));
+            text += QString("%1%2%3%4%5\n")
+                .arg(itemQuery.getColumn(0).getInt(),  -6)
+                .arg(QString::fromStdString(itemQuery.getColumn(1).getString()).left(15), -16)
+                .arg(itemQuery.getColumn(2).getInt(),  -8)
+                .arg(QString::number(itemQuery.getColumn(3).getDouble(), 'f', 2), -10)
+                .arg(QString::number(itemQuery.getColumn(4).getDouble(), 'f', 2), -10);
         }
-    } catch (...) {
-        // Table stays empty if query fails
-    }
+    } catch (...) {}
 
-    layout->addWidget(table);
+    text += "-------------------------------------\n";
+    text += QString("Subtotal: %1\n").arg(QString::number(receipt.subtotal(), 'f', 2));
+    text += QString("Tax (14%%): %1\n").arg(QString::number(receipt.tax(), 'f', 2));
+    text += QString("TOTAL   : %1\n").arg(QString::number(receipt.total(), 'f', 2));
+    text += "=====================================\n";
+
+    // Display in a monospaced QTextEdit (read-only)
+    auto* textEdit = new QTextEdit(&preview);
+    textEdit->setReadOnly(true);
+    textEdit->setPlainText(text);
+    textEdit->setStyleSheet(
+        "QTextEdit { font-family: 'Consolas', 'Courier New', monospace; "
+        "font-size: 13px; background: #1e1e1e; color: #d4d4d4; "
+        "padding: 12px; border-radius: 4px; }");
+    layout->addWidget(textEdit);
 
     // Close button
     auto* closeBtn = new QPushButton("Close", &preview);
@@ -438,12 +559,15 @@ void Main::onGenerateReceipt()
     dialog.setMinimumWidth(450);
     auto* mainLayout = new QVBoxLayout(&dialog);
 
-    // Customer name
-    auto* customerLayout = new QHBoxLayout();
-    customerLayout->addWidget(new QLabel("Customer:", &dialog));
+    // Customer / Supplier name
+    auto* nameForm = new QFormLayout();
     auto* customerEdit = new QLineEdit(&dialog);
-    customerLayout->addWidget(customerEdit);
-    mainLayout->addLayout(customerLayout);
+    customerEdit->setPlaceholderText("Customer name (required)");
+    nameForm->addRow("Customer:", customerEdit);
+    auto* supplierEdit = new QLineEdit(&dialog);
+    supplierEdit->setPlaceholderText("Supplier / company name (optional)");
+    nameForm->addRow("Supplier:", supplierEdit);
+    mainLayout->addLayout(nameForm);
 
     // Items table with editable qty/price
     auto* itemTable = new QTableWidget(itemList.size(), 4, &dialog);
@@ -483,11 +607,19 @@ void Main::onGenerateReceipt()
 
     if (dialog.exec() != QDialog::Accepted) return;
 
+    // Require customer name
+    if (customerEdit->text().trimmed().isEmpty()) {
+        QMessageBox::warning(this, "Missing Customer",
+            "Please enter a customer name.");
+        return;
+    }
+
     // Build the receipt
     Receipt receipt;
-    if (!customerEdit->text().trimmed().isEmpty()) {
-        receipt.setCustomer(customerEdit->text().trimmed().toStdString());
-    }
+    receipt.setCustomer(customerEdit->text().trimmed().toStdString());
+
+    // Store supplier name to save after receipt is created
+    QString supplierName = supplierEdit->text().trimmed();
 
     try {
         for (int i = 0; i < itemList.size(); ++i) {
@@ -500,6 +632,20 @@ void Main::onGenerateReceipt()
         }
 
         receipt.saveToDB(wmsController.getDB());
+
+        // Save supplier name if provided
+        if (!supplierName.isEmpty()) {
+            try {
+                // Add supplier_name column if it doesn't exist yet
+                wmsController.getDB().exec(
+                    "ALTER TABLE receipts ADD COLUMN supplier_name TEXT DEFAULT ''");
+            } catch (...) {} // column already exists
+            SQLite::Statement upd(wmsController.getDB(),
+                "UPDATE receipts SET supplier_name = ? WHERE receipt_number = ?");
+            upd.bind(1, supplierName.toStdString());
+            upd.bind(2, receipt.getReceiptNumber());
+            upd.exec();
+        }
     } catch (const std::exception& e) {
         QMessageBox::warning(this, "Receipt Failed",
             QString("Could not save receipt: %1").arg(e.what()));
@@ -549,11 +695,11 @@ void Main::onReceiptHistory()
 
     QDialog dialog(this);
     dialog.setWindowTitle("Receipt History");
-    dialog.setMinimumSize(600, 400);
+    dialog.setMinimumSize(650, 420);
     auto* layout = new QVBoxLayout(&dialog);
 
-    auto* table = new QTableWidget(static_cast<int>(receipts.size()), 3, &dialog);
-    table->setHorizontalHeaderLabels({"Receipt #", "Customer", "Total"});
+    auto* table = new QTableWidget(static_cast<int>(receipts.size()), 4, &dialog);
+    table->setHorizontalHeaderLabels({"Receipt #", "Customer", "Date", "Total"});
     table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     table->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -563,31 +709,29 @@ void Main::onReceiptHistory()
         const auto& r = receipts[static_cast<size_t>(i)];
         table->setItem(i, 0, new QTableWidgetItem(
             QString::fromStdString(r.getReceiptNumber())));
-        // Customer name is private, load from DB query
-        try {
-            SQLite::Statement q(wmsController.getDB(),
-                "SELECT customer_name, total FROM receipts WHERE receipt_number = ?");
-            q.bind(1, r.getReceiptNumber());
-            if (q.executeStep()) {
-                table->setItem(i, 1, new QTableWidgetItem(
-                    QString::fromStdString(q.getColumn(0).getString())));
-                table->setItem(i, 2, new QTableWidgetItem(
-                    QString::number(q.getColumn(1).getDouble(), 'f', 2)));
-            }
-        } catch (...) {
-            table->setItem(i, 1, new QTableWidgetItem("—"));
-            table->setItem(i, 2, new QTableWidgetItem(
-                QString::number(r.total(), 'f', 2)));
-        }
+        table->setItem(i, 1, new QTableWidgetItem(
+            QString::fromStdString(r.getCustomerName())));
+        // Show actual timestamp
+        qint64 epoch = std::chrono::duration_cast<std::chrono::seconds>(
+            r.getTimestamp().time_since_epoch()).count();
+        table->setItem(i, 2, new QTableWidgetItem(
+            QDateTime::fromSecsSinceEpoch(epoch).toString("yyyy-MM-dd HH:mm")));
+        table->setItem(i, 3, new QTableWidgetItem(
+            QString::number(r.total(), 'f', 2)));
     }
 
     layout->addWidget(table);
 
     // Buttons
     auto* btnLayout = new QHBoxLayout();
-    auto* viewBtn  = new QPushButton("View Receipt", &dialog);
-    auto* closeBtn = new QPushButton("Close", &dialog);
+    auto* viewBtn   = new QPushButton("View Receipt", &dialog);
+    auto* exportBtn = new QPushButton("Export Selected", &dialog);
+    auto* deleteBtn = new QPushButton("Delete Receipt", &dialog);
+    auto* closeBtn  = new QPushButton("Close", &dialog);
+    deleteBtn->setStyleSheet("QPushButton { color: #cc3333; }");
     btnLayout->addWidget(viewBtn);
+    btnLayout->addWidget(exportBtn);
+    btnLayout->addWidget(deleteBtn);
     btnLayout->addStretch();
     btnLayout->addWidget(closeBtn);
     layout->addLayout(btnLayout);
@@ -604,6 +748,40 @@ void Main::onReceiptHistory()
         showReceiptPreview(receipts[static_cast<size_t>(row)]);
     });
 
+    // Export selected receipt
+    connect(exportBtn, &QPushButton::clicked, [&]() {
+        int row = table->currentRow();
+        if (row < 0) {
+            QMessageBox::information(&dialog, "No Selection", "Please select a receipt to export.");
+            return;
+        }
+        exportReceiptsToCSV({ receipts[static_cast<size_t>(row)] });
+    });
+
+    // Delete selected receipt
+    connect(deleteBtn, &QPushButton::clicked, [&]() {
+        int row = table->currentRow();
+        if (row < 0) {
+            QMessageBox::information(&dialog, "No Selection", "Please select a receipt to delete.");
+            return;
+        }
+        const auto& r = receipts[static_cast<size_t>(row)];
+        auto confirm = QMessageBox::question(&dialog, "Confirm Delete",
+            QString("Delete receipt %1?\nThis cannot be undone.")
+                .arg(QString::fromStdString(r.getReceiptNumber())));
+        if (confirm != QMessageBox::Yes) return;
+
+        try {
+            Receipt::deleteFromDB(wmsController.getDB(), r.getReceiptNumber());
+            receipts.erase(receipts.begin() + row);
+            table->removeRow(row);
+            ui->statusbar->showMessage("Receipt deleted.", 3000);
+        } catch (const std::exception& e) {
+            QMessageBox::warning(&dialog, "Error",
+                QString("Could not delete receipt: %1").arg(e.what()));
+        }
+    });
+
     // Double-click to view
     connect(table, &QTableWidget::cellDoubleClicked, [&](int row, int) {
         if (row >= 0 && row < static_cast<int>(receipts.size())) {
@@ -614,7 +792,7 @@ void Main::onReceiptHistory()
     dialog.exec();
 }
 
-// ─── Slot: Export CSV ────────────────────────────────────────────────────────
+// ─── Slot: Export CSV (exports ALL receipts) ─────────────────────────────────
 void Main::onExportCSV()
 {
     std::vector<Receipt> receipts;
@@ -627,14 +805,29 @@ void Main::onExportCSV()
     }
 
     if (receipts.empty()) {
-        QMessageBox::information(this, "No Receipts",
-            "No receipts to export.");
+        QMessageBox::information(this, "No Receipts", "No receipts to export.");
         return;
     }
 
+    exportReceiptsToCSV(receipts);
+}
+
+// ─── Helper: Export receipts as printable formatted text ─────────────────────
+void Main::exportReceiptsToCSV(const std::vector<Receipt>& receipts)
+{
+    if (receipts.empty()) {
+        QMessageBox::information(this, "No Receipts", "Nothing to export.");
+        return;
+    }
+
+    // Default filename
+    QString defaultName = (receipts.size() == 1)
+        ? QString::fromStdString(receipts[0].getReceiptNumber()) + ".txt"
+        : "receipts.txt";
+
     QString filePath = QFileDialog::getSaveFileName(
-        this, "Export Receipts to CSV", "receipts.csv",
-        "CSV Files (*.csv);;All Files (*)");
+        this, "Export Receipt", defaultName,
+        "Text Files (*.txt);;All Files (*)");
 
     if (filePath.isEmpty()) return;
 
@@ -647,80 +840,87 @@ void Main::onExportCSV()
 
     QTextStream out(&file);
 
-    // Header
-    out << "Receipt Number,Customer,Item ID,Item Name,Location,"
-           "Quantity,Unit Price,Line Total,Subtotal,Tax,Total\n";
+    for (size_t idx = 0; idx < receipts.size(); ++idx) {
+        const auto& r = receipts[idx];
 
-    // For each receipt, load its items and write rows
-    for (const auto& r : receipts) {
-        const QString rcptNum = QString::fromStdString(r.getReceiptNumber());
-        QString customer = "";
-        double subtotal = 0, tax = 0, total = 0;
+        // Timestamp
+        qint64 epoch = std::chrono::duration_cast<std::chrono::seconds>(
+            r.getTimestamp().time_since_epoch()).count();
+        QString dateStr = QDateTime::fromSecsSinceEpoch(epoch)
+            .toString("yyyy-MM-dd HH:mm:ss");
 
-        // Get receipt header from DB
+        out << "=====================================\n";
+        out << "        WMS-X  RECEIPT\n";
+        out << "-------------------------------------\n";
+        out << QString("Receipt : %1\n").arg(
+            QString::fromStdString(r.getReceiptNumber()));
+        out << QString("Date    : %1\n").arg(dateStr);
+
+        QString customer = QString::fromStdString(r.getCustomerName());
+        if (!customer.isEmpty())
+            out << QString("Customer: %1\n").arg(customer);
+
+        // Try to load supplier from DB
         try {
-            SQLite::Statement hq(wmsController.getDB(),
-                "SELECT customer_name, subtotal, tax, total "
-                "FROM receipts WHERE receipt_number = ?");
-            hq.bind(1, r.getReceiptNumber());
-            if (hq.executeStep()) {
-                customer = QString::fromStdString(hq.getColumn(0).getString());
-                subtotal = hq.getColumn(1).getDouble();
-                tax      = hq.getColumn(2).getDouble();
-                total    = hq.getColumn(3).getDouble();
+            SQLite::Statement sq(wmsController.getDB(),
+                "SELECT supplier_name FROM receipts WHERE receipt_number = ?");
+            sq.bind(1, r.getReceiptNumber());
+            if (sq.executeStep()) {
+                QString supplier = QString::fromStdString(
+                    sq.getColumn(0).getString());
+                if (!supplier.isEmpty())
+                    out << QString("Supplier: %1\n").arg(supplier);
             }
         } catch (...) {}
 
-        // Get line items
+        out << "-------------------------------------\n";
+        out << QString("%1%2%3%4%5\n")
+            .arg("ID",    -6)
+            .arg("Name",  -16)
+            .arg("Qty",   -8)
+            .arg("Price", -10)
+            .arg("Total", -10);
+
+        // Load items from DB
         try {
             SQLite::Statement iq(wmsController.getDB(),
-                "SELECT item_id, name, location, quantity, unit_price, line_total "
+                "SELECT item_id, name, quantity, unit_price, line_total "
                 "FROM receipt_items WHERE receipt_number = ?");
             iq.bind(1, r.getReceiptNumber());
 
-            bool firstLine = true;
             while (iq.executeStep()) {
-                // Escape customer name for CSV (wrap in quotes if it contains commas)
-                QString safeCustomer = customer;
-                if (safeCustomer.contains(',') || safeCustomer.contains('"')) {
-                    safeCustomer = "\"" + safeCustomer.replace("\"", "\"\"") + "\"";
-                }
-
-                out << rcptNum << ","
-                    << safeCustomer << ","
-                    << iq.getColumn(0).getInt() << ","
-                    << QString::fromStdString(iq.getColumn(1).getString()).replace(",", " ") << ","
-                    << QString::fromStdString(iq.getColumn(2).getString()).replace(",", " ") << ","
-                    << iq.getColumn(3).getInt() << ","
-                    << QString::number(iq.getColumn(4).getDouble(), 'f', 2) << ","
-                    << QString::number(iq.getColumn(5).getDouble(), 'f', 2) << ",";
-
-                if (firstLine) {
-                    out << QString::number(subtotal, 'f', 2) << ","
-                        << QString::number(tax, 'f', 2) << ","
-                        << QString::number(total, 'f', 2);
-                    firstLine = false;
-                } else {
-                    out << ",,";
-                }
-                out << "\n";
-            }
-
-            // Receipt with no items (edge case)
-            if (firstLine) {
-                out << rcptNum << "," << customer << ",,,,,,,"
-                    << QString::number(subtotal, 'f', 2) << ","
-                    << QString::number(tax, 'f', 2) << ","
-                    << QString::number(total, 'f', 2) << "\n";
+                out << QString("%1%2%3%4%5\n")
+                    .arg(iq.getColumn(0).getInt(), -6)
+                    .arg(QString::fromStdString(
+                        iq.getColumn(1).getString()).left(15), -16)
+                    .arg(iq.getColumn(2).getInt(), -8)
+                    .arg(QString::number(
+                        iq.getColumn(3).getDouble(), 'f', 2), -10)
+                    .arg(QString::number(
+                        iq.getColumn(4).getDouble(), 'f', 2), -10);
             }
         } catch (...) {}
+
+        out << "-------------------------------------\n";
+        out << QString("Subtotal : %1\n").arg(
+            QString::number(r.subtotal(), 'f', 2));
+        out << QString("Tax (14%%): %1\n").arg(
+            QString::number(r.tax(), 'f', 2));
+        out << QString("TOTAL    : %1\n").arg(
+            QString::number(r.total(), 'f', 2));
+        out << "=====================================\n";
+
+        // Separator between receipts
+        if (idx + 1 < receipts.size())
+            out << "\n\n";
     }
 
     file.close();
     ui->statusbar->showMessage(
-        QString("Exported %1 receipt(s) to %2").arg(receipts.size()).arg(filePath), 4000);
+        QString("Exported %1 receipt(s) to %2")
+            .arg(static_cast<qulonglong>(receipts.size())).arg(filePath), 4000);
     QMessageBox::information(this, "Export Complete",
-        QString("Receipts exported to:\n%1").arg(filePath));
+        QString("Receipt exported to:\n%1").arg(filePath));
 }
 
 

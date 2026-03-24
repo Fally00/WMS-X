@@ -6,7 +6,7 @@
 #include "cli/cli.h"
 
 #include "commands/registry.hpp"            // CommandRegistry
-#include "utils/parser.hpp"             // tokenize()
+#include "utils/parser.hpp"                // tokenize()
 #include "commands/command.hpp"           // ICommand
 #include "commands/addComand.hpp"        // Command implementations (add/remove/etc)
 #include "commands/CommandContext.hpp"  // CommandContext
