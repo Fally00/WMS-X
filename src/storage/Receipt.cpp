@@ -237,3 +237,18 @@ vector<Receipt> Receipt::loadHistory(SQLite::Database& db) {
 
     return receipts;
 }
+
+// ─────────────────────────────────────────────
+// Delete a receipt from SQLite
+// ─────────────────────────────────────────────
+void Receipt::deleteFromDB(SQLite::Database& db, const string& receiptNumber) {
+    SQLite::Statement delItems(db,
+        "DELETE FROM receipt_items WHERE receipt_number = ?");
+    delItems.bind(1, receiptNumber);
+    delItems.exec();
+
+    SQLite::Statement delReceipt(db,
+        "DELETE FROM receipts WHERE receipt_number = ?");
+    delReceipt.bind(1, receiptNumber);
+    delReceipt.exec();
+}

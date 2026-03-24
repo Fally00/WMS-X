@@ -41,6 +41,7 @@ public:
     // SQLite persistence
     void saveToDB(SQLite::Database& db) const;
     static std::vector<Receipt> loadHistory(SQLite::Database& db);
+    static void deleteFromDB(SQLite::Database& db, const std::string& receiptNumber);
 
 private:
     std::string receiptNumber;

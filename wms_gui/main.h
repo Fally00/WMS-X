@@ -44,6 +44,7 @@ private:
     QString formatTime(std::time_t t) const;
     QString itemStatus(int quantity) const;
     void showReceiptPreview(const Receipt& receipt);
+    void exportReceiptsToCSV(const std::vector<Receipt>& receipts);
 };
 
 #endif // MAIN_H
