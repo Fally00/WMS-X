@@ -4,6 +4,7 @@
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
 #include <QInputDialog>
+#include <QListWidget>
 #include <QFileDialog>
 #include <QHeaderView>
 #include <QFormLayout>
@@ -70,9 +71,9 @@ QString Main::itemStatus(int quantity) const
 // ─── Load all items from the controller into the table ───────────────────────
 void Main::loadInventory()
 {
-    populateTable(wmsController.getAllItems());
-    ui->statusbar->showMessage(QString("Total items: %1").arg(
-        wmsController.getAllItems().size()));
+    auto items = wmsController.getAllItems();
+    ui->statusbar->showMessage(QString("Total items: %1").arg(items.size()));
+    populateTable(items);
 }
 
 // ─── Fill the QTableWidget rows ──────────────────────────────────────────────
@@ -277,40 +278,128 @@ void Main::onSearch()
     ui->inventoryTable->clearSelection();
 }
 
-// ─── Slot: Queue Task ────────────────────────────────────────────────────────
+// ─── Slot: Queue Task — Help Menu ────────────────────────────────────────────
 void Main::onQueueTask()
 {
-    bool ok = false;
-    QString raw = QInputDialog::getText(
-        this,
-        "Queue Task",
-        "Enter command to queue (example: ADD 101 \"Widget\" 5 A1):",
-        QLineEdit::Normal,
-        QString(),
-        &ok
-    ).trimmed();
+    // Command definitions: name, usage, description
+    struct CmdInfo {
+        QString name;
+        QString usage;
+        QString description;
+    };
 
-    if (!ok || raw.isEmpty()) return;
+    const QList<CmdInfo> commands = {
+        { "ADD",
+          "ADD <id> <name> <qty> <location>",
+          "Add a new item to inventory.\nResult: new row appears in the table." },
+        { "REMOVE",
+          "REMOVE <id>",
+          "Remove an item by its ID.\nResult: row is deleted from the table." },
+        { "UPDATE",
+          "UPDATE <id> --name <n> --qty <q> --loc <l> --price <p>",
+          "Update one or more fields of an existing item.\nResult: updated values appear in the table." },
+        { "LIST",
+          "LIST [page] [pageSize]",
+          "List inventory items (paginated, CLI output).\nResult: prints to console; table unchanged." },
+        { "SEARCH",
+          "SEARCH <id>  or  SEARCH --name <query>",
+          "Search for an item by ID or name.\nResult: prints to console; table unchanged." },
+        { "RECEIPT",
+          "RECEIPT <id qty price>... [customer]",
+          "Generate a receipt for one or more items.\nResult: receipt saved to DB, stock deducted." },
+        { "QUEUE",
+          "QUEUE <command...>",
+          "Queue another command for deferred processing." },
+        { "PROCESSQUEUE",
+          "PROCESSQUEUE [limit]",
+          "Process all (or N) queued tasks.\nResult: queued operations executed; table refreshed." },
+    };
 
-    int splitIndex = -1;
-    for (int i = 0; i < raw.size(); ++i) {
-        if (raw.at(i).isSpace()) {
-            splitIndex = i;
-            break;
-        }
+    // Build dialog
+    QDialog dialog(this);
+    dialog.setWindowTitle("Queue Task — Command Help");
+    dialog.setMinimumSize(560, 420);
+    auto* layout = new QVBoxLayout(&dialog);
+
+    layout->addWidget(new QLabel("<b>Select a command to queue:</b>", &dialog));
+
+    // Command list
+    auto* cmdList = new QListWidget(&dialog);
+    for (const auto& cmd : commands) {
+        cmdList->addItem(QString("%1  —  %2").arg(cmd.name, -14).arg(cmd.usage));
     }
+    cmdList->setCurrentRow(0);
+    layout->addWidget(cmdList);
 
-    if (splitIndex < 0) {
-        raw = raw.toUpper();
-    } else {
-        raw = raw.left(splitIndex).toUpper() + raw.mid(splitIndex);
-    }
+    // Description label (updates on selection)
+    auto* descLabel = new QLabel(&dialog);
+    descLabel->setWordWrap(true);
+    descLabel->setStyleSheet("QLabel { background: #f0f0f0; padding: 6px; border-radius: 4px; }");
+    descLabel->setText(commands[0].description);
+    layout->addWidget(descLabel);
 
-    wmsController.enqueueTask(raw.toStdString());
-    ui->statusbar->showMessage(
-        QString("Task queued. Queue size: %1").arg(wmsController.queueSize()),
-        3000
-    );
+    // Arguments input
+    auto* argsLayout = new QHBoxLayout();
+    argsLayout->addWidget(new QLabel("Arguments:", &dialog));
+    auto* argsEdit = new QLineEdit(&dialog);
+    argsEdit->setPlaceholderText("e.g. 101 \"Widget\" 5 A1");
+    argsLayout->addWidget(argsEdit);
+    layout->addLayout(argsLayout);
+
+    // Buttons
+    auto* btnLayout = new QHBoxLayout();
+    auto* queueBtn     = new QPushButton("Queue && Run", &dialog);
+    auto* queueOnlyBtn = new QPushButton("Queue Only", &dialog);
+    auto* cancelBtn    = new QPushButton("Cancel", &dialog);
+    btnLayout->addWidget(queueBtn);
+    btnLayout->addWidget(queueOnlyBtn);
+    btnLayout->addStretch();
+    btnLayout->addWidget(cancelBtn);
+    layout->addLayout(btnLayout);
+
+    // Update description when selection changes
+    connect(cmdList, &QListWidget::currentRowChanged, [&](int row) {
+        if (row >= 0 && row < commands.size())
+            descLabel->setText(commands[row].description);
+    });
+
+    connect(cancelBtn, &QPushButton::clicked, &dialog, &QDialog::reject);
+
+    // Queue & Run: enqueue, process immediately, refresh table
+    connect(queueBtn, &QPushButton::clicked, [&]() {
+        int row = cmdList->currentRow();
+        if (row < 0) return;
+        QString raw = commands[row].name;
+        QString args = argsEdit->text().trimmed();
+        if (!args.isEmpty()) raw += " " + args;
+
+        wmsController.enqueueTask(raw.toStdString());
+        wmsController.processTasks(0);
+        wmsController.reloadInventory();
+        loadInventory();
+
+        ui->statusbar->showMessage(
+            QString("Executed: %1").arg(raw), 4000);
+        dialog.accept();
+    });
+
+    // Queue Only: just enqueue, don't process yet
+    connect(queueOnlyBtn, &QPushButton::clicked, [&]() {
+        int row = cmdList->currentRow();
+        if (row < 0) return;
+        QString raw = commands[row].name;
+        QString args = argsEdit->text().trimmed();
+        if (!args.isEmpty()) raw += " " + args;
+
+        wmsController.enqueueTask(raw.toStdString());
+        ui->statusbar->showMessage(
+            QString("Task queued (%1). Queue size: %2")
+                .arg(raw)
+                .arg(wmsController.queueSize()), 4000);
+        dialog.accept();
+    });
+
+    dialog.exec();
 }
 
 // ─── Slot: Run Queue ─────────────────────────────────────────────────────────
@@ -563,22 +652,10 @@ void Main::onReceiptHistory()
         const auto& r = receipts[static_cast<size_t>(i)];
         table->setItem(i, 0, new QTableWidgetItem(
             QString::fromStdString(r.getReceiptNumber())));
-        // Customer name is private, load from DB query
-        try {
-            SQLite::Statement q(wmsController.getDB(),
-                "SELECT customer_name, total FROM receipts WHERE receipt_number = ?");
-            q.bind(1, r.getReceiptNumber());
-            if (q.executeStep()) {
-                table->setItem(i, 1, new QTableWidgetItem(
-                    QString::fromStdString(q.getColumn(0).getString())));
-                table->setItem(i, 2, new QTableWidgetItem(
-                    QString::number(q.getColumn(1).getDouble(), 'f', 2)));
-            }
-        } catch (...) {
-            table->setItem(i, 1, new QTableWidgetItem("—"));
-            table->setItem(i, 2, new QTableWidgetItem(
-                QString::number(r.total(), 'f', 2)));
-        }
+        table->setItem(i, 1, new QTableWidgetItem(
+            QString::fromStdString(r.getCustomerName())));
+        table->setItem(i, 2, new QTableWidgetItem(
+            QString::number(r.total(), 'f', 2)));
     }
 
     layout->addWidget(table);

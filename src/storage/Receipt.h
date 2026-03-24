@@ -33,6 +33,8 @@ public:
     double total() const;
 
     std::string getReceiptNumber() const;
+    std::string getCustomerName() const;
+    std::chrono::system_clock::time_point getTimestamp() const;
 
     void print() const;
 
