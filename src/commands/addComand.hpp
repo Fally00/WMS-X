@@ -7,6 +7,7 @@
 #include "storage/Receipt.h"
 #include "output/output.h"
 #include "models/Item.h"
+#include "models/Customer.h"
 
 //needed libraries
 #include <optional>
@@ -206,32 +207,61 @@ class ReceiptCommand : public ICommand {
 public:
     Result<void> execute(CommandContext& ctx, const std::vector<std::string>& a) override {
         if (a.size() < 3)
-            return Result<void>::fail("Usage: receipt <id quantity price>... [customer]");
+            return Result<void>::fail("Usage: receipt <id quantity price>... [customer] [--cid <customer_id>]");
 
-        size_t remainder = a.size() % 3;
+        // Check for --cid flag
+        int linkedCustomerId = -1;
+        std::vector<std::string> args;
+        for (size_t i = 0; i < a.size(); ++i) {
+            if (a[i] == "--cid") {
+                if (i + 1 >= a.size())
+                    return Result<void>::fail("--cid requires a customer ID");
+                auto cidParsed = safetyparse(a[i + 1]);
+                if (!cidParsed.ok)
+                    return Result<void>::fail("Invalid customer ID: " + a[i + 1]);
+                linkedCustomerId = cidParsed.value;
+                ++i; // skip the ID value
+            } else {
+                args.push_back(a[i]);
+            }
+        }
+
+        if (args.size() < 3)
+            return Result<void>::fail("Usage: receipt <id quantity price>... [customer] [--cid <customer_id>]");
+
+        size_t remainder = args.size() % 3;
         std::string customer;
-        size_t itemsEnd = a.size();
+        size_t itemsEnd = args.size();
 
         if (remainder == 1) {
-            customer = a.back();
+            customer = args.back();
             itemsEnd -= 1;
         } else if (remainder != 0) {
-            return Result<void>::fail("Usage: receipt <id quantity price>... [customer]");
+            return Result<void>::fail("Usage: receipt <id quantity price>... [customer] [--cid <customer_id>]");
         }
 
         Receipt receipt;
-        if (!customer.empty()) receipt.setCustomer(customer);
+
+        // If --cid is provided, look up customer from DB
+        if (linkedCustomerId >= 0) {
+            auto cust = ctx.wms.getCustomer(linkedCustomerId);
+            if (!cust.has_value())
+                return Result<void>::fail("Customer not found with ID: " + std::to_string(linkedCustomerId));
+            receipt.setCustomer(cust->getName(), cust->getPhone(), cust->getEmail());
+        } else if (!customer.empty()) {
+            receipt.setCustomer(customer);
+        }
 
         for (size_t i = 0; i < itemsEnd; i += 3) {
-            auto id = safetyparse(a[i]);
+            auto id = safetyparse(args[i]);
             if (!id.ok) return Result<void>::fail(id.error);
 
             int qty = 0;
             double price = 0.0;
-            try { qty = std::stoi(a[i + 1]); }
+            try { qty = std::stoi(args[i + 1]); }
             catch (const std::exception&) { return Result<void>::fail("Quantity must be an integer"); }
 
-            try { price = std::stod(a[i + 2]); }
+            try { price = std::stod(args[i + 2]); }
             catch (const std::exception&) { return Result<void>::fail("Price must be a number"); }
 
             if (qty <= 0) return Result<void>::fail("Quantity must be > 0");
@@ -250,22 +280,189 @@ public:
         try {
             receipt.print();
             receipt.saveToDB(ctx.wms.getDB());
+
+            // If linked to a customer, save customer_id on the receipt
+            if (linkedCustomerId >= 0) {
+                try {
+                    SQLite::Statement upd(ctx.wms.getDB(),
+                        "UPDATE receipts SET customer_id = ? WHERE receipt_number = ?");
+                    upd.bind(1, linkedCustomerId);
+                    upd.bind(2, receipt.getReceiptNumber());
+                    upd.exec();
+                } catch (const std::exception& e) {
+                    OutputFormatter::printWarning(
+                        "Warning: could not link customer to receipt: " + std::string(e.what()));
+                }
+            }
         } catch (const std::exception& e) {
             return Result<void>::fail(std::string("Failed to generate receipt: ") + e.what());
         }
 
         // Deduct sold quantities from inventory now that the receipt is committed
         for (size_t i = 0; i < itemsEnd; i += 3) {
-            int itemId = std::stoi(a[i]);
-            int qty    = std::stoi(a[i + 1]);
+            int itemId = std::stoi(args[i]);
+            int qty    = std::stoi(args[i + 1]);
             if (!ctx.wms.adjustStock(itemId, -qty)) {
                 OutputFormatter::printWarning(
-                    "Warning: could not deduct stock for item " + a[i] +
+                    "Warning: could not deduct stock for item " + args[i] +
                     " (receipt saved, inventory may be inconsistent)");
             }
         }
 
         if (ctx.autosave) ctx.wms.saveAll();
         return Result<void>::success();
+    }
+};
+
+// ─────────────────────────────────────────────
+// Customer Command (subcommand router)
+// ─────────────────────────────────────────────
+// Usage:
+//   customer add <name> <phone> <address> [email]
+//   customer remove <id>
+//   customer list
+//   customer search <id>
+//   customer search --name <query>
+//   customer update <id> [--name <n>] [--phone <p>] [--addr <a>] [--email <e>]
+
+class CustomerCommand : public ICommand {
+public:
+    Result<void> execute(CommandContext& ctx, const std::vector<std::string>& a) override {
+        if (a.empty())
+            return Result<void>::fail(
+                "Usage: customer <add|remove|list|search|update> [args...]");
+
+        std::string sub = a[0];
+        std::transform(sub.begin(), sub.end(), sub.begin(), ::tolower);
+
+        // ── customer add <name> <phone> <address> [email] ──
+        if (sub == "add") {
+            if (a.size() < 4)
+                return Result<void>::fail("Usage: customer add <name> <phone> <address> [email]");
+
+            std::string name  = a[1];
+            std::string phone = a[2];
+            std::string addr  = a[3];
+            std::string email = (a.size() >= 5) ? a[4] : "";
+
+            if (!ctx.wms.addCustomer(name, phone, addr, email))
+                return Result<void>::fail("Failed to add customer");
+
+            OutputFormatter::printInfo("Customer added successfully.");
+            return Result<void>::success();
+        }
+
+        // ── customer remove <id> ──
+        if (sub == "remove") {
+            if (a.size() != 2)
+                return Result<void>::fail("Usage: customer remove <id>");
+
+            auto id = safetyparse(a[1]);
+            if (!id.ok) return Result<void>::fail(id.error);
+
+            if (!ctx.wms.removeCustomer(id.value))
+                return Result<void>::fail("Customer not found");
+
+            OutputFormatter::printInfo("Customer removed.");
+            return Result<void>::success();
+        }
+
+        // ── customer list ──
+        if (sub == "list") {
+            auto customers = ctx.wms.getAllCustomers();
+            if (customers.empty()) {
+                OutputFormatter::printWarning("No customers found.");
+                return Result<void>::success();
+            }
+
+            std::vector<std::string> headers = {"ID", "Name", "Phone", "Address", "Email"};
+            std::vector<std::vector<std::string>> rows;
+            for (const auto& c : customers) {
+                rows.push_back({
+                    std::to_string(c.getId()),
+                    c.getName(),
+                    c.getPhone(),
+                    c.getAddress(),
+                    c.getEmail()
+                });
+            }
+            OutputFormatter::printTable(headers, rows);
+            return Result<void>::success();
+        }
+
+        // ── customer search <id>  |  customer search --name <query> ──
+        if (sub == "search") {
+            if (a.size() < 2)
+                return Result<void>::fail("Usage: customer search <id>  |  customer search --name <query>");
+
+            if (a[1] == "--name") {
+                if (a.size() < 3)
+                    return Result<void>::fail("Usage: customer search --name <query>");
+
+                auto results = ctx.wms.searchCustomerByName(a[2]);
+                if (results.empty())
+                    return Result<void>::fail("No customers found matching: " + a[2]);
+
+                for (const auto& c : results) printCustomer(c);
+                return Result<void>::success();
+            }
+
+            // Search by ID
+            auto id = safetyparse(a[1]);
+            if (!id.ok) return Result<void>::fail(id.error);
+
+            auto customer = ctx.wms.getCustomer(id.value);
+            if (!customer.has_value())
+                return Result<void>::fail("Customer not found");
+
+            printCustomer(customer.value());
+            return Result<void>::success();
+        }
+
+        // ── customer update <id> [--name <n>] [--phone <p>] [--addr <a>] [--email <e>] ──
+        if (sub == "update") {
+            if (a.size() < 2)
+                return Result<void>::fail(
+                    "Usage: customer update <id> [--name <n>] [--phone <p>] [--addr <a>] [--email <e>]");
+
+            auto id = safetyparse(a[1]);
+            if (!id.ok) return Result<void>::fail(id.error);
+
+            std::optional<std::string> name, phone, addr, email;
+            bool anyFlag = false;
+
+            for (size_t i = 2; i + 1 < a.size(); i += 2) {
+                const std::string& flag = a[i];
+                const std::string& val  = a[i + 1];
+
+                if (flag == "--name") {
+                    name = val;
+                    anyFlag = true;
+                } else if (flag == "--phone") {
+                    phone = val;
+                    anyFlag = true;
+                } else if (flag == "--addr") {
+                    addr = val;
+                    anyFlag = true;
+                } else if (flag == "--email") {
+                    email = val;
+                    anyFlag = true;
+                } else {
+                    return Result<void>::fail("Unknown flag: " + flag);
+                }
+            }
+
+            if (!anyFlag)
+                return Result<void>::fail("No fields specified. Use --name, --phone, --addr, --email");
+
+            if (!ctx.wms.updateCustomer(id.value, name, phone, addr, email))
+                return Result<void>::fail("Customer not found or update failed");
+
+            OutputFormatter::printInfo("Customer updated.");
+            return Result<void>::success();
+        }
+
+        return Result<void>::fail(
+            "Unknown subcommand: '" + sub + "'. Use add, remove, list, search, or update.");
     }
 };

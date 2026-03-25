@@ -22,8 +22,10 @@ add_subdirectory("${VENDOR_DIR}/SQLiteCpp" "${CMAKE_BINARY_DIR}/SQLiteCpp_build"
 set(BACKEND_SOURCES
     "${BACKEND_SRC_DIR}/models/Item.cpp"
     "${BACKEND_SRC_DIR}/models/Inventory.cpp"
+    "${BACKEND_SRC_DIR}/models/Customer.cpp"
     "${BACKEND_SRC_DIR}/storage/Storage.cpp"
     "${BACKEND_SRC_DIR}/storage/Receipt.cpp"
+    "${BACKEND_SRC_DIR}/storage/CustomerStorage.cpp"
     "${BACKEND_SRC_DIR}/controllers/WmsControllers.cpp"
     "${BACKEND_SRC_DIR}/output/output.cpp"
 )

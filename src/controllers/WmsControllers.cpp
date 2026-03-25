@@ -15,7 +15,7 @@ using namespace std;
 // Constructor
 // ─────────────────────────────────────────────
 WmsControllers::WmsControllers(const string& storagePath)
-    : storage(storagePath), inventory(storage.getDB()) {
+    : storage(storagePath), inventory(storage.getDB()), customerStorage(storage.getDB()) {
 
     commandRegistry["ADD"]    = [this](const Task& t){ return cmdAdd(t); };
     commandRegistry["REMOVE"] = [this](const Task& t){ return cmdRemove(t); };
@@ -30,6 +30,7 @@ bool WmsControllers::initializeSystem() {
     try {
         storage.initializeStorage();
         inventory.loadAll();
+        customerStorage.loadAll();
     } catch (const std::exception& e) {
         cerr << "[STORAGE ERROR] " << e.what() << endl;
         return false;
@@ -110,6 +111,65 @@ std::vector<Item> WmsControllers::getAllItems() {
 
 SQLite::Database& WmsControllers::getDB() {
     return storage.getDB();
+}
+
+// ─────────────────────────────────────────────
+// Customer Management
+// ─────────────────────────────────────────────
+
+bool WmsControllers::addCustomer(const std::string& name, const std::string& phone,
+                                  const std::string& address, const std::string& email) {
+    try {
+        int nextId = customerStorage.getNextId();
+        Customer customer(nextId, name, phone, address, email);
+        return customerStorage.addCustomer(customer);
+    } catch (const std::exception& e) {
+        cerr << "[CUSTOMER ERROR] " << e.what() << endl;
+        return false;
+    }
+}
+
+bool WmsControllers::removeCustomer(int id) {
+    return customerStorage.removeCustomer(id);
+}
+
+std::optional<Customer> WmsControllers::getCustomer(int id) {
+    if (auto* customer = customerStorage.findCustomer(id)) return *customer;
+    return std::nullopt;
+}
+
+bool WmsControllers::updateCustomer(int id,
+                                     const std::optional<std::string>& name,
+                                     const std::optional<std::string>& phone,
+                                     const std::optional<std::string>& address,
+                                     const std::optional<std::string>& email) {
+    Customer* customer = customerStorage.findCustomer(id);
+    if (!customer) return false;
+
+    try {
+        if (name)    customer->setName(*name);
+        if (phone)   customer->setPhone(*phone);
+        if (address) customer->setAddress(*address);
+        if (email)   customer->setEmail(*email);
+    } catch (const std::exception&) {
+        return false;
+    }
+
+    // Persist the updated customer to SQLite
+    customerStorage.saveCustomer(*customer);
+    return true;
+}
+
+std::vector<Customer> WmsControllers::searchCustomerByName(const std::string& query) {
+    return customerStorage.searchByName(query);
+}
+
+std::vector<Customer> WmsControllers::getAllCustomers() {
+    return customerStorage.getAllCustomers();
+}
+
+int WmsControllers::getNextCustomerId() {
+    return customerStorage.getNextId();
 }
 
 // ─────────────────────────────────────────────

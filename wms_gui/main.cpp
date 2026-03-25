@@ -13,6 +13,8 @@
 #include <QMessageBox>
 #include <QTextStream>
 #include <QTextEdit>
+#include <QCheckBox>
+#include <QComboBox>
 #include <algorithm>
 #include <QDateTime>
 #include <QSpinBox>
@@ -54,6 +56,7 @@ Main::Main(QWidget *parent)
     connect(ui->receiptBtn,        &QPushButton::clicked, this, &Main::onGenerateReceipt);
     connect(ui->receiptHistoryBtn, &QPushButton::clicked, this, &Main::onReceiptHistory);
     connect(ui->exportCsvBtn,      &QPushButton::clicked, this, &Main::onExportCSV);
+    connect(ui->customersBtn,      &QPushButton::clicked, this, &Main::onManageCustomers);
 }
 
 Main::~Main()
@@ -451,6 +454,23 @@ void Main::showReceiptPreview(const Receipt& receipt)
         text += QString("Customer: %1\n").arg(customer);
     }
 
+    // Try to load linked customer details from DB
+    try {
+        SQLite::Statement cq(wmsController.getDB(),
+            "SELECT customer_id FROM receipts WHERE receipt_number = ?");
+        cq.bind(1, receipt.getReceiptNumber());
+        if (cq.executeStep() && !cq.getColumn(0).isNull()) {
+            int custId = cq.getColumn(0).getInt();
+            auto cust = wmsController.getCustomer(custId);
+            if (cust.has_value()) {
+                if (!cust->getPhone().empty())
+                    text += QString("Phone   : %1\n").arg(QString::fromStdString(cust->getPhone()));
+                if (!cust->getAddress().empty())
+                    text += QString("Address : %1\n").arg(QString::fromStdString(cust->getAddress()));
+            }
+        }
+    } catch (...) {}
+
     // Try to load supplier from DB
     try {
         SQLite::Statement sq(wmsController.getDB(),
@@ -512,7 +532,7 @@ void Main::showReceiptPreview(const Receipt& receipt)
     preview.exec();
 }
 
-// ─── Slot: Generate Receipt (multi-item) ─────────────────────────────────────
+// ─── Slot: Generate Receipt (multi-item with customer lookup) ────────────────
 void Main::onGenerateReceipt()
 {
     // Collect all selected rows
@@ -556,18 +576,122 @@ void Main::onGenerateReceipt()
     // Dialog: let user set qty/price per item + customer
     QDialog dialog(this);
     dialog.setWindowTitle("Generate Receipt");
-    dialog.setMinimumWidth(450);
+    dialog.setMinimumWidth(500);
     auto* mainLayout = new QVBoxLayout(&dialog);
 
-    // Customer / Supplier name
-    auto* nameForm = new QFormLayout();
+    // ── Customer section with lookup/manual toggle ──
+    auto* custGroup = new QFormLayout();
+
+    // Manual entry toggle
+    auto* manualCheck = new QCheckBox("Manual entry (type customer name)", &dialog);
+    manualCheck->setChecked(false);
+    custGroup->addRow(manualCheck);
+
+    // Customer lookup controls
+    auto* lookupLayout = new QHBoxLayout();
+    auto* custSearchEdit = new QLineEdit(&dialog);
+    custSearchEdit->setPlaceholderText("Search customer by name or ID...");
+    auto* lookupBtn = new QPushButton("Lookup", &dialog);
+    lookupLayout->addWidget(custSearchEdit);
+    lookupLayout->addWidget(lookupBtn);
+    custGroup->addRow("Customer:", lookupLayout);
+
+    // Customer results list
+    auto* custResultList = new QListWidget(&dialog);
+    custResultList->setMaximumHeight(100);
+    custResultList->setVisible(false);
+    custGroup->addRow("", custResultList);
+
+    // Selected customer display (read-only)
+    auto* custInfoLabel = new QLabel("No customer selected", &dialog);
+    custInfoLabel->setStyleSheet("QLabel { background: #2d2d2d; color: #b0b0b0; padding: 6px; border-radius: 4px; }");
+    custGroup->addRow("Selected:", custInfoLabel);
+
+    // Manual name input (hidden by default)
     auto* customerEdit = new QLineEdit(&dialog);
     customerEdit->setPlaceholderText("Customer name (required)");
-    nameForm->addRow("Customer:", customerEdit);
+    customerEdit->setVisible(false);
+    custGroup->addRow("Name:", customerEdit);
+
+    // Supplier field
     auto* supplierEdit = new QLineEdit(&dialog);
     supplierEdit->setPlaceholderText("Supplier / company name (optional)");
-    nameForm->addRow("Supplier:", supplierEdit);
-    mainLayout->addLayout(nameForm);
+    custGroup->addRow("Supplier:", supplierEdit);
+
+    mainLayout->addLayout(custGroup);
+
+    // Track selected customer ID
+    int selectedCustomerId = -1;
+
+    // Toggle manual/lookup mode
+    connect(manualCheck, &QCheckBox::toggled, [&](bool manual) {
+        custSearchEdit->setVisible(!manual);
+        lookupBtn->setVisible(!manual);
+        custResultList->setVisible(false);
+        custInfoLabel->setVisible(!manual);
+        customerEdit->setVisible(manual);
+        if (manual) {
+            selectedCustomerId = -1;
+            custInfoLabel->setText("No customer selected");
+        }
+    });
+
+    // Lookup button
+    connect(lookupBtn, &QPushButton::clicked, [&]() {
+        QString query = custSearchEdit->text().trimmed();
+        if (query.isEmpty()) return;
+
+        custResultList->clear();
+        custResultList->setVisible(true);
+
+        // Try ID first
+        bool isId;
+        int searchId = query.toInt(&isId);
+        if (isId) {
+            auto cust = wmsController.getCustomer(searchId);
+            if (cust.has_value()) {
+                custResultList->addItem(QString("#%1 — %2 (%3)")
+                    .arg(cust->getId())
+                    .arg(QString::fromStdString(cust->getName()))
+                    .arg(QString::fromStdString(cust->getPhone())));
+                custResultList->item(0)->setData(Qt::UserRole, cust->getId());
+            } else {
+                custResultList->addItem("No customer found with that ID.");
+            }
+        } else {
+            auto results = wmsController.searchCustomerByName(query.toStdString());
+            if (results.empty()) {
+                custResultList->addItem("No customers found matching: " + query);
+            } else {
+                for (const auto& c : results) {
+                    auto* item = new QListWidgetItem(QString("#%1 — %2 (%3)")
+                        .arg(c.getId())
+                        .arg(QString::fromStdString(c.getName()))
+                        .arg(QString::fromStdString(c.getPhone())));
+                    item->setData(Qt::UserRole, c.getId());
+                    custResultList->addItem(item);
+                }
+            }
+        }
+    });
+
+    // Select customer from results
+    connect(custResultList, &QListWidget::itemClicked, [&](QListWidgetItem* item) {
+        QVariant data = item->data(Qt::UserRole);
+        if (!data.isValid()) return;
+
+        selectedCustomerId = data.toInt();
+        auto cust = wmsController.getCustomer(selectedCustomerId);
+        if (cust.has_value()) {
+            custInfoLabel->setText(QString("%1 | %2 | %3")
+                .arg(QString::fromStdString(cust->getName()))
+                .arg(QString::fromStdString(cust->getPhone()))
+                .arg(QString::fromStdString(cust->getAddress())));
+            custInfoLabel->setStyleSheet(
+                "QLabel { background: #1a3a1a; color: #70d070; padding: 6px; border-radius: 4px; }");
+        }
+        custResultList->setVisible(false);
+    });
 
     // Items table with editable qty/price
     auto* itemTable = new QTableWidget(itemList.size(), 4, &dialog);
@@ -607,16 +731,30 @@ void Main::onGenerateReceipt()
 
     if (dialog.exec() != QDialog::Accepted) return;
 
-    // Require customer name
-    if (customerEdit->text().trimmed().isEmpty()) {
+    // Validate customer input
+    bool isManual = manualCheck->isChecked();
+    if (isManual && customerEdit->text().trimmed().isEmpty()) {
         QMessageBox::warning(this, "Missing Customer",
             "Please enter a customer name.");
+        return;
+    }
+    if (!isManual && selectedCustomerId < 0) {
+        QMessageBox::warning(this, "No Customer Selected",
+            "Please look up and select a customer, or switch to manual entry.");
         return;
     }
 
     // Build the receipt
     Receipt receipt;
-    receipt.setCustomer(customerEdit->text().trimmed().toStdString());
+
+    if (isManual) {
+        receipt.setCustomer(customerEdit->text().trimmed().toStdString());
+    } else {
+        auto cust = wmsController.getCustomer(selectedCustomerId);
+        if (cust.has_value()) {
+            receipt.setCustomer(cust->getName(), cust->getPhone(), cust->getEmail());
+        }
+    }
 
     // Store supplier name to save after receipt is created
     QString supplierName = supplierEdit->text().trimmed();
@@ -632,6 +770,17 @@ void Main::onGenerateReceipt()
         }
 
         receipt.saveToDB(wmsController.getDB());
+
+        // Save customer_id if linked
+        if (!isManual && selectedCustomerId >= 0) {
+            try {
+                SQLite::Statement upd(wmsController.getDB(),
+                    "UPDATE receipts SET customer_id = ? WHERE receipt_number = ?");
+                upd.bind(1, selectedCustomerId);
+                upd.bind(2, receipt.getReceiptNumber());
+                upd.exec();
+            } catch (...) {}
+        }
 
         // Save supplier name if provided
         if (!supplierName.isEmpty()) {
@@ -676,7 +825,7 @@ void Main::onGenerateReceipt()
     showReceiptPreview(receipt);
 }
 
-// ─── Slot: Receipt History ───────────────────────────────────────────────────
+// ─── Slot: Receipt History (with customer filter) ────────────────────────────
 void Main::onReceiptHistory()
 {
     std::vector<Receipt> receipts;
@@ -695,8 +844,25 @@ void Main::onReceiptHistory()
 
     QDialog dialog(this);
     dialog.setWindowTitle("Receipt History");
-    dialog.setMinimumSize(650, 420);
+    dialog.setMinimumSize(750, 480);
     auto* layout = new QVBoxLayout(&dialog);
+
+    // ── Customer filter ──
+    auto* filterLayout = new QHBoxLayout();
+    filterLayout->addWidget(new QLabel("Filter by Customer:", &dialog));
+    auto* custFilterCombo = new QComboBox(&dialog);
+    custFilterCombo->addItem("All Customers", -1);
+
+    // Populate combo with customers from DB
+    auto allCustomers = wmsController.getAllCustomers();
+    for (const auto& c : allCustomers) {
+        custFilterCombo->addItem(
+            QString("#%1 — %2").arg(c.getId()).arg(QString::fromStdString(c.getName())),
+            c.getId());
+    }
+    filterLayout->addWidget(custFilterCombo);
+    filterLayout->addStretch();
+    layout->addLayout(filterLayout);
 
     auto* table = new QTableWidget(static_cast<int>(receipts.size()), 4, &dialog);
     table->setHorizontalHeaderLabels({"Receipt #", "Customer", "Date", "Total"});
@@ -705,20 +871,54 @@ void Main::onReceiptHistory()
     table->setSelectionBehavior(QAbstractItemView::SelectRows);
     table->setSelectionMode(QAbstractItemView::SingleSelection);
 
-    for (int i = 0; i < static_cast<int>(receipts.size()); ++i) {
-        const auto& r = receipts[static_cast<size_t>(i)];
-        table->setItem(i, 0, new QTableWidgetItem(
-            QString::fromStdString(r.getReceiptNumber())));
-        table->setItem(i, 1, new QTableWidgetItem(
-            QString::fromStdString(r.getCustomerName())));
-        // Show actual timestamp
-        qint64 epoch = std::chrono::duration_cast<std::chrono::seconds>(
-            r.getTimestamp().time_since_epoch()).count();
-        table->setItem(i, 2, new QTableWidgetItem(
-            QDateTime::fromSecsSinceEpoch(epoch).toString("yyyy-MM-dd HH:mm")));
-        table->setItem(i, 3, new QTableWidgetItem(
-            QString::number(r.total(), 'f', 2)));
-    }
+    // Lambda to populate the receipt table
+    auto populateReceiptTable = [&](int filterCustId) {
+        table->setRowCount(0);
+        for (int i = 0; i < static_cast<int>(receipts.size()); ++i) {
+            const auto& r = receipts[static_cast<size_t>(i)];
+
+            // Filter by customer_id if requested
+            if (filterCustId >= 0) {
+                try {
+                    SQLite::Statement cq(wmsController.getDB(),
+                        "SELECT customer_id FROM receipts WHERE receipt_number = ?");
+                    cq.bind(1, r.getReceiptNumber());
+                    if (cq.executeStep()) {
+                        if (cq.getColumn(0).isNull() || cq.getColumn(0).getInt() != filterCustId)
+                            continue;
+                    } else {
+                        continue;
+                    }
+                } catch (...) { continue; }
+            }
+
+            int row = table->rowCount();
+            table->insertRow(row);
+
+            table->setItem(row, 0, new QTableWidgetItem(
+                QString::fromStdString(r.getReceiptNumber())));
+            table->setItem(row, 1, new QTableWidgetItem(
+                QString::fromStdString(r.getCustomerName())));
+            qint64 epoch = std::chrono::duration_cast<std::chrono::seconds>(
+                r.getTimestamp().time_since_epoch()).count();
+            table->setItem(row, 2, new QTableWidgetItem(
+                QDateTime::fromSecsSinceEpoch(epoch).toString("yyyy-MM-dd HH:mm")));
+            table->setItem(row, 3, new QTableWidgetItem(
+                QString::number(r.total(), 'f', 2)));
+
+            // Store the original index so we can reference the correct receipt
+            table->item(row, 0)->setData(Qt::UserRole, i);
+        }
+    };
+
+    // Initially show all
+    populateReceiptTable(-1);
+
+    // Filter on combo change
+    connect(custFilterCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), [&](int idx) {
+        int custId = custFilterCombo->itemData(idx).toInt();
+        populateReceiptTable(custId);
+    });
 
     layout->addWidget(table);
 
@@ -738,34 +938,43 @@ void Main::onReceiptHistory()
 
     connect(closeBtn, &QPushButton::clicked, &dialog, &QDialog::accept);
 
+    // Helper to get original receipt index from table row
+    auto getReceiptIndex = [&](int row) -> int {
+        if (row < 0 || !table->item(row, 0)) return -1;
+        return table->item(row, 0)->data(Qt::UserRole).toInt();
+    };
+
     // View selected receipt
     connect(viewBtn, &QPushButton::clicked, [&]() {
         int row = table->currentRow();
-        if (row < 0) {
+        int idx = getReceiptIndex(row);
+        if (idx < 0) {
             QMessageBox::information(&dialog, "No Selection", "Please select a receipt.");
             return;
         }
-        showReceiptPreview(receipts[static_cast<size_t>(row)]);
+        showReceiptPreview(receipts[static_cast<size_t>(idx)]);
     });
 
     // Export selected receipt
     connect(exportBtn, &QPushButton::clicked, [&]() {
         int row = table->currentRow();
-        if (row < 0) {
+        int idx = getReceiptIndex(row);
+        if (idx < 0) {
             QMessageBox::information(&dialog, "No Selection", "Please select a receipt to export.");
             return;
         }
-        exportReceiptsToCSV({ receipts[static_cast<size_t>(row)] });
+        exportReceiptsToCSV({ receipts[static_cast<size_t>(idx)] });
     });
 
     // Delete selected receipt
     connect(deleteBtn, &QPushButton::clicked, [&]() {
         int row = table->currentRow();
-        if (row < 0) {
+        int idx = getReceiptIndex(row);
+        if (idx < 0) {
             QMessageBox::information(&dialog, "No Selection", "Please select a receipt to delete.");
             return;
         }
-        const auto& r = receipts[static_cast<size_t>(row)];
+        const auto& r = receipts[static_cast<size_t>(idx)];
         auto confirm = QMessageBox::question(&dialog, "Confirm Delete",
             QString("Delete receipt %1?\nThis cannot be undone.")
                 .arg(QString::fromStdString(r.getReceiptNumber())));
@@ -773,8 +982,9 @@ void Main::onReceiptHistory()
 
         try {
             Receipt::deleteFromDB(wmsController.getDB(), r.getReceiptNumber());
-            receipts.erase(receipts.begin() + row);
-            table->removeRow(row);
+            receipts.erase(receipts.begin() + idx);
+            int custId = custFilterCombo->currentData().toInt();
+            populateReceiptTable(custId);
             ui->statusbar->showMessage("Receipt deleted.", 3000);
         } catch (const std::exception& e) {
             QMessageBox::warning(&dialog, "Error",
@@ -784,8 +994,9 @@ void Main::onReceiptHistory()
 
     // Double-click to view
     connect(table, &QTableWidget::cellDoubleClicked, [&](int row, int) {
-        if (row >= 0 && row < static_cast<int>(receipts.size())) {
-            showReceiptPreview(receipts[static_cast<size_t>(row)]);
+        int idx = getReceiptIndex(row);
+        if (idx >= 0 && idx < static_cast<int>(receipts.size())) {
+            showReceiptPreview(receipts[static_cast<size_t>(idx)]);
         }
     });
 
@@ -860,6 +1071,23 @@ void Main::exportReceiptsToCSV(const std::vector<Receipt>& receipts)
         if (!customer.isEmpty())
             out << QString("Customer: %1\n").arg(customer);
 
+        // Include linked customer phone & address if available
+        try {
+            SQLite::Statement cq(wmsController.getDB(),
+                "SELECT customer_id FROM receipts WHERE receipt_number = ?");
+            cq.bind(1, r.getReceiptNumber());
+            if (cq.executeStep() && !cq.getColumn(0).isNull()) {
+                int custId = cq.getColumn(0).getInt();
+                auto cust = wmsController.getCustomer(custId);
+                if (cust.has_value()) {
+                    if (!cust->getPhone().empty())
+                        out << QString("Phone   : %1\n").arg(QString::fromStdString(cust->getPhone()));
+                    if (!cust->getAddress().empty())
+                        out << QString("Address : %1\n").arg(QString::fromStdString(cust->getAddress()));
+                }
+            }
+        } catch (...) {}
+
         // Try to load supplier from DB
         try {
             SQLite::Statement sq(wmsController.getDB(),
@@ -921,6 +1149,232 @@ void Main::exportReceiptsToCSV(const std::vector<Receipt>& receipts)
             .arg(static_cast<qulonglong>(receipts.size())).arg(filePath), 4000);
     QMessageBox::information(this, "Export Complete",
         QString("Receipt exported to:\n%1").arg(filePath));
+}
+
+// ─── Slot: Manage Customers ──────────────────────────────────────────────────
+void Main::onManageCustomers()
+{
+    QDialog dialog(this);
+    dialog.setWindowTitle("Customer Management");
+    dialog.setMinimumSize(750, 480);
+    auto* layout = new QVBoxLayout(&dialog);
+
+    // Search bar
+    auto* searchLayout = new QHBoxLayout();
+    auto* custSearchEdit = new QLineEdit(&dialog);
+    custSearchEdit->setPlaceholderText("Search by name or ID...");
+    auto* custSearchBtn = new QPushButton("Search", &dialog);
+    auto* showAllBtn = new QPushButton("Show All", &dialog);
+    searchLayout->addWidget(custSearchEdit);
+    searchLayout->addWidget(custSearchBtn);
+    searchLayout->addWidget(showAllBtn);
+    layout->addLayout(searchLayout);
+
+    // Customer table
+    auto* table = new QTableWidget(0, 6, &dialog);
+    table->setHorizontalHeaderLabels({"ID", "Name", "Phone", "Address", "Email", "Created At"});
+    table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    table->setSelectionBehavior(QAbstractItemView::SelectRows);
+    table->setSelectionMode(QAbstractItemView::SingleSelection);
+    layout->addWidget(table);
+
+    // Lambda to refresh customer table
+    auto refreshTable = [&](const std::vector<Customer>& customers) {
+        table->setRowCount(0);
+        for (const auto& c : customers) {
+            int row = table->rowCount();
+            table->insertRow(row);
+            table->setItem(row, 0, new QTableWidgetItem(QString::number(c.getId())));
+            table->setItem(row, 1, new QTableWidgetItem(QString::fromStdString(c.getName())));
+            table->setItem(row, 2, new QTableWidgetItem(QString::fromStdString(c.getPhone())));
+            table->setItem(row, 3, new QTableWidgetItem(QString::fromStdString(c.getAddress())));
+            table->setItem(row, 4, new QTableWidgetItem(QString::fromStdString(c.getEmail())));
+            table->setItem(row, 5, new QTableWidgetItem(
+                QDateTime::fromSecsSinceEpoch(static_cast<qint64>(c.getCreatedAt()))
+                    .toString("yyyy-MM-dd HH:mm")));
+        }
+    };
+
+    // Load all customers initially
+    refreshTable(wmsController.getAllCustomers());
+
+    // Search
+    connect(custSearchBtn, &QPushButton::clicked, [&]() {
+        QString query = custSearchEdit->text().trimmed();
+        if (query.isEmpty()) {
+            refreshTable(wmsController.getAllCustomers());
+            return;
+        }
+
+        bool isId;
+        int id = query.toInt(&isId);
+        if (isId) {
+            auto cust = wmsController.getCustomer(id);
+            if (cust.has_value()) {
+                refreshTable({cust.value()});
+            } else {
+                table->setRowCount(0);
+            }
+        } else {
+            refreshTable(wmsController.searchCustomerByName(query.toStdString()));
+        }
+    });
+
+    connect(custSearchEdit, &QLineEdit::returnPressed, custSearchBtn, &QPushButton::click);
+
+    // Show All
+    connect(showAllBtn, &QPushButton::clicked, [&]() {
+        custSearchEdit->clear();
+        refreshTable(wmsController.getAllCustomers());
+    });
+
+    // Buttons
+    auto* btnLayout = new QHBoxLayout();
+    auto* addBtn    = new QPushButton("Add Customer", &dialog);
+    auto* editBtn   = new QPushButton("Edit Customer", &dialog);
+    auto* deleteBtn = new QPushButton("Delete Customer", &dialog);
+    auto* closeBtn  = new QPushButton("Close", &dialog);
+    deleteBtn->setStyleSheet("QPushButton { color: #cc3333; }");
+    btnLayout->addWidget(addBtn);
+    btnLayout->addWidget(editBtn);
+    btnLayout->addWidget(deleteBtn);
+    btnLayout->addStretch();
+    btnLayout->addWidget(closeBtn);
+    layout->addLayout(btnLayout);
+
+    connect(closeBtn, &QPushButton::clicked, &dialog, &QDialog::accept);
+
+    // ── Add Customer ──
+    connect(addBtn, &QPushButton::clicked, [&]() {
+        QDialog addDlg(&dialog);
+        addDlg.setWindowTitle("Add New Customer");
+        QFormLayout form(&addDlg);
+
+        auto* nameEdit  = new QLineEdit(&addDlg);
+        auto* phoneEdit = new QLineEdit(&addDlg);
+        auto* addrEdit  = new QLineEdit(&addDlg);
+        auto* emailEdit = new QLineEdit(&addDlg);
+
+        nameEdit->setPlaceholderText("Required");
+        phoneEdit->setPlaceholderText("Optional");
+        addrEdit->setPlaceholderText("Optional");
+        emailEdit->setPlaceholderText("Optional");
+
+        form.addRow("Name:",    nameEdit);
+        form.addRow("Phone:",   phoneEdit);
+        form.addRow("Address:", addrEdit);
+        form.addRow("Email:",   emailEdit);
+
+        QDialogButtonBox btns(QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
+                              Qt::Horizontal, &addDlg);
+        form.addRow(&btns);
+        connect(&btns, &QDialogButtonBox::accepted, &addDlg, &QDialog::accept);
+        connect(&btns, &QDialogButtonBox::rejected, &addDlg, &QDialog::reject);
+
+        if (addDlg.exec() != QDialog::Accepted) return;
+
+        if (nameEdit->text().trimmed().isEmpty()) {
+            QMessageBox::warning(&dialog, "Invalid Input", "Customer name is required.");
+            return;
+        }
+
+        if (!wmsController.addCustomer(
+                nameEdit->text().trimmed().toStdString(),
+                phoneEdit->text().trimmed().toStdString(),
+                addrEdit->text().trimmed().toStdString(),
+                emailEdit->text().trimmed().toStdString())) {
+            QMessageBox::warning(&dialog, "Failed", "Could not add customer.");
+            return;
+        }
+
+        refreshTable(wmsController.getAllCustomers());
+        ui->statusbar->showMessage("Customer added.", 3000);
+    });
+
+    // ── Edit Customer ──
+    connect(editBtn, &QPushButton::clicked, [&]() {
+        int row = table->currentRow();
+        if (row < 0) {
+            QMessageBox::information(&dialog, "No Selection", "Please select a customer to edit.");
+            return;
+        }
+
+        int custId = table->item(row, 0)->text().toInt();
+        auto cust = wmsController.getCustomer(custId);
+        if (!cust.has_value()) {
+            QMessageBox::warning(&dialog, "Error", "Customer not found.");
+            return;
+        }
+
+        QDialog editDlg(&dialog);
+        editDlg.setWindowTitle(QString("Edit Customer #%1").arg(custId));
+        QFormLayout form(&editDlg);
+
+        auto* nameEdit  = new QLineEdit(QString::fromStdString(cust->getName()), &editDlg);
+        auto* phoneEdit = new QLineEdit(QString::fromStdString(cust->getPhone()), &editDlg);
+        auto* addrEdit  = new QLineEdit(QString::fromStdString(cust->getAddress()), &editDlg);
+        auto* emailEdit = new QLineEdit(QString::fromStdString(cust->getEmail()), &editDlg);
+
+        form.addRow("Name:",    nameEdit);
+        form.addRow("Phone:",   phoneEdit);
+        form.addRow("Address:", addrEdit);
+        form.addRow("Email:",   emailEdit);
+
+        QDialogButtonBox btns(QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
+                              Qt::Horizontal, &editDlg);
+        form.addRow(&btns);
+        connect(&btns, &QDialogButtonBox::accepted, &editDlg, &QDialog::accept);
+        connect(&btns, &QDialogButtonBox::rejected, &editDlg, &QDialog::reject);
+
+        if (editDlg.exec() != QDialog::Accepted) return;
+
+        std::optional<std::string> name = nameEdit->text().trimmed().isEmpty()
+            ? std::nullopt : std::optional<std::string>(nameEdit->text().trimmed().toStdString());
+        std::optional<std::string> phone = std::optional<std::string>(phoneEdit->text().trimmed().toStdString());
+        std::optional<std::string> addr = std::optional<std::string>(addrEdit->text().trimmed().toStdString());
+        std::optional<std::string> email = std::optional<std::string>(emailEdit->text().trimmed().toStdString());
+
+        if (!wmsController.updateCustomer(custId, name, phone, addr, email)) {
+            QMessageBox::warning(&dialog, "Failed", "Could not update customer.");
+            return;
+        }
+
+        refreshTable(wmsController.getAllCustomers());
+        ui->statusbar->showMessage("Customer updated.", 3000);
+    });
+
+    // ── Delete Customer ──
+    connect(deleteBtn, &QPushButton::clicked, [&]() {
+        int row = table->currentRow();
+        if (row < 0) {
+            QMessageBox::information(&dialog, "No Selection", "Please select a customer to delete.");
+            return;
+        }
+
+        int custId = table->item(row, 0)->text().toInt();
+        QString custName = table->item(row, 1)->text();
+
+        auto confirm = QMessageBox::question(&dialog, "Confirm Delete",
+            QString("Delete customer #%1 (%2)?\nThis cannot be undone.")
+                .arg(custId).arg(custName));
+        if (confirm != QMessageBox::Yes) return;
+
+        if (!wmsController.removeCustomer(custId)) {
+            QMessageBox::warning(&dialog, "Failed", "Customer not found.");
+            return;
+        }
+
+        refreshTable(wmsController.getAllCustomers());
+        ui->statusbar->showMessage("Customer deleted.", 3000);
+    });
+
+    // Double-click to edit
+    connect(table, &QTableWidget::cellDoubleClicked, [&](int, int) {
+        editBtn->click();
+    });
+
+    dialog.exec();
 }
 
 

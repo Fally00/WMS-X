@@ -24,7 +24,9 @@ jobs:
           -Isrc -Ivendor/SQLiteCpp/include \
           src/main.cpp \
           src/models/Item.cpp src/models/Inventory.cpp \
+          src/models/Customer.cpp \
           src/storage/Storage.cpp src/storage/Receipt.cpp \
+          src/storage/CustomerStorage.cpp \
           src/controllers/WmsControllers.cpp \
           src/output/output.cpp src/cli/cli.cpp \
           vendor/SQLiteCpp/src/Backup.cpp \

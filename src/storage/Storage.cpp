@@ -51,6 +51,27 @@ void Storage::initializeStorage() {
         "  line_total     REAL    NOT NULL"
         ");"
     );
+
+    // ─────────────────────────────────────────────
+    // Customer table
+    // ─────────────────────────────────────────────
+    db.exec(
+        "CREATE TABLE IF NOT EXISTS customers ("
+        "  id         INTEGER PRIMARY KEY,"
+        "  name       TEXT    NOT NULL,"
+        "  phone      TEXT    DEFAULT '',"
+        "  address    TEXT    DEFAULT '',"
+        "  email      TEXT    DEFAULT '',"
+        "  created_at INTEGER NOT NULL"
+        ");"
+    );
+
+    // Add customer_id column to receipts (safe for upgrade — column may already exist)
+    try {
+        db.exec("ALTER TABLE receipts ADD COLUMN customer_id INTEGER DEFAULT NULL");
+    } catch (...) {
+        // Column already exists — safe to ignore
+    }
 }
 
 // ─────────────────────────────────────────────

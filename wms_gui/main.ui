@@ -188,6 +188,13 @@
         </property>
        </widget>
       </item>
+      <item>
+       <widget class="QPushButton" name="customersBtn">
+        <property name="text">
+         <string>Customers</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </item>
    </layout>

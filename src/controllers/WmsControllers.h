@@ -1,8 +1,10 @@
 #pragma once
 //needed file inclusion
 #include "models/Inventory.h"
+#include "models/Customer.h"
 #include "storage/Storage.h"
 #include "storage/Receipt.h"
+#include "storage/CustomerStorage.h"
 
 //needed libraries
 #include <unordered_map>
@@ -32,6 +34,7 @@ class WmsControllers {
 private:
     Storage storage;
     Inventory inventory;
+    CustomerStorage customerStorage;
     std::priority_queue<Task> taskQueue;
 
     std::unordered_map<std::string,
@@ -69,6 +72,22 @@ public:
 
     // Receipt support — expose DB for receipt operations
     SQLite::Database& getDB();
+
+    // ─────────────────────────────────────────────
+    // Customer management
+    // ─────────────────────────────────────────────
+    bool addCustomer(const std::string& name, const std::string& phone,
+                     const std::string& address, const std::string& email = "");
+    bool removeCustomer(int id);
+    std::optional<Customer> getCustomer(int id);
+    bool updateCustomer(int id,
+                        const std::optional<std::string>& name,
+                        const std::optional<std::string>& phone,
+                        const std::optional<std::string>& address,
+                        const std::optional<std::string>& email);
+    std::vector<Customer> searchCustomerByName(const std::string& query);
+    std::vector<Customer> getAllCustomers();
+    int getNextCustomerId();
 
     void enqueueTask(const std::string& raw, TaskPriority prio = TaskPriority::NORMAL);
     void processTasks(size_t limit = 0); // limit=0 → all

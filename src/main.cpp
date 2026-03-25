@@ -72,7 +72,13 @@ int main(int argc, char* argv[]) {
         {"search --name <query>", "                                                       Find items by name"},
         {"queue <COMMAND...>", "                                       Queue a task (ADD/REMOVE/LIST/SEARCH)"},
         {"runq [limit]", "                                                              Process queued tasks"},
-        {"receipt <id quantity price>... [customer]", "           Generate & save a receipt (multiple lines)"},
+        {"receipt <id qty price>... [customer] [--cid <id>]", "              Generate receipt (link customer)"},
+        {"customer add <name> <phone> <addr> [email]", "                                  Add new customer"},
+        {"customer remove <id>", "                                                   Remove customer by ID"},
+        {"customer list", "                                                             List all customers"},
+        {"customer search <id>", "                                                  Find customer by ID"},
+        {"customer search --name <query>", "                                       Find customers by name"},
+        {"customer update <id> [--name] [--phone] [--addr] [--email]", "         Update customer fields"},
         {"help", "                                                                            Show this help"},
         {"exit", "                                                                                  Quit WMS"},
         {"version/-v/--version", "                                                              Show version"},
@@ -107,6 +113,7 @@ int main(int argc, char* argv[]) {
     registry.registerCommand<QueueCommand>("queue");
     registry.registerCommand<ProcessQueueCommand>("runq");
     registry.registerCommand<ReceiptCommand>("receipt");
+    registry.registerCommand<CustomerCommand>("customer");
 
     // Execution context
     CommandContext ctx{

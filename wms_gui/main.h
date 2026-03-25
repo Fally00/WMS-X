@@ -9,6 +9,7 @@
 
 #include "controllers/WmsControllers.h"
 #include "storage/Receipt.h"
+#include "models/Customer.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -34,6 +35,7 @@ private slots:
     void onGenerateReceipt();
     void onReceiptHistory();
     void onExportCSV();
+    void onManageCustomers();
 
 private:
     Ui::Main *ui;
