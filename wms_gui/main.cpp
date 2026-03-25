@@ -43,7 +43,6 @@
 #include <QtCharts/QBarCategoryAxis>
 #include <QtCharts/QValueAxis>
 #include <QPainter>
-using namespace QtCharts;
 #endif
 
 // ─── Constructor ─────────────────────────────────────────────────────────────
@@ -1565,7 +1564,7 @@ void Main::onOpenReports()
     dlg->setWindowTitle("WMS-X — Reports");
     dlg->resize(920, 620);
 
-    auto& eng = wmsController.getReportEngine();
+    ReportEngine eng(wmsController.getDB());
 
     auto* root = new QVBoxLayout(dlg);
 
@@ -1864,7 +1863,7 @@ void Main::onOpenReports()
 
     auto* exportRepBtn = new QPushButton("Export current tab as text…", dlg);
     root->addWidget(exportRepBtn);
-    connect(exportRepBtn, &QPushButton::clicked, dlg, [=]() {
+    connect(exportRepBtn, &QPushButton::clicked, dlg, [&]() {
         QString path = QFileDialog::getSaveFileName(dlg, "Export report", "wms_report.txt",
             "Text (*.txt);;All Files (*)");
         if (path.isEmpty()) return;
@@ -1924,21 +1923,10 @@ void Main::onOpenReports()
         QMessageBox::information(dlg, "Export", "Report saved.");
     });
 
-    dlg->show();
+    dlg->exec();
 }
 
 int main(int argc, char *argv[])
-{
-    QApplication app(argc, argv);
-    Main window;
-    window.show();
-    return app.exec();
-}
-</think>
-
-
-<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>
-Grep
 {
     QApplication app(argc, argv);
     Main window;

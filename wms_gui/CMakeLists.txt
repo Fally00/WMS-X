@@ -9,7 +9,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt6 COMPONENTS Core Widgets REQUIRED)
+find_package(Qt6 COMPONENTS Core Widgets PrintSupport REQUIRED)
 find_package(Qt6 COMPONENTS Charts QUIET)
 if (TARGET Qt6::Charts)
     set(WMS_GUI_HAS_CHARTS ON)
@@ -33,6 +33,7 @@ set(BACKEND_SOURCES
     "${BACKEND_SRC_DIR}/storage/Receipt.cpp"
     "${BACKEND_SRC_DIR}/storage/CustomerStorage.cpp"
     "${BACKEND_SRC_DIR}/controllers/WmsControllers.cpp"
+    "${BACKEND_SRC_DIR}/reports/ReportEngine.cpp"
     "${BACKEND_SRC_DIR}/output/output.cpp"
 )
 
@@ -54,6 +55,7 @@ target_link_libraries(wms_gui
     PRIVATE
         Qt6::Core
         Qt6::Widgets
+        Qt6::PrintSupport
         SQLiteCpp
 )
 
