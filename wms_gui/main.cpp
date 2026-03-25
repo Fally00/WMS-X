@@ -1,6 +1,8 @@
 #include "main.h"
 #include "ui_main.h"
 
+#include <QApplication>
+#include <QFont>
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
 #include <QInputDialog>
@@ -16,12 +18,33 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <algorithm>
+#include <iomanip>
+#include <sstream>
 #include <QDateTime>
 #include <QSpinBox>
 #include <QDialog>
 #include <QString>
 #include <QLabel>
 #include <QFile>
+#include <QDateEdit>
+#include <QTabWidget>
+#include <QPrinter>
+#include <QPrintDialog>
+#include <QAbstractItemView>
+#include <QTextDocument>
+#include <QEvent>
+#include <optional>
+
+#ifdef WMS_GUI_HAS_CHARTS
+#include <QtCharts/QBarSeries>
+#include <QtCharts/QBarSet>
+#include <QtCharts/QChart>
+#include <QtCharts/QChartView>
+#include <QtCharts/QBarCategoryAxis>
+#include <QtCharts/QValueAxis>
+#include <QPainter>
+using namespace QtCharts;
+#endif
 
 // ─── Constructor ─────────────────────────────────────────────────────────────
 Main::Main(QWidget *parent)
@@ -57,6 +80,8 @@ Main::Main(QWidget *parent)
     connect(ui->receiptHistoryBtn, &QPushButton::clicked, this, &Main::onReceiptHistory);
     connect(ui->exportCsvBtn,      &QPushButton::clicked, this, &Main::onExportCSV);
     connect(ui->customersBtn,      &QPushButton::clicked, this, &Main::onManageCustomers);
+    connect(ui->reportsBtn,       &QPushButton::clicked, this, &Main::onOpenReports);
+    connect(ui->searchLineEdit,   &QLineEdit::textChanged, this, &Main::onSearchTextChanged);
 }
 
 Main::~Main()
@@ -98,6 +123,7 @@ void Main::populateTable(const std::vector<Item>& items)
         table->setItem(row, 5,  new QTableWidgetItem(QString::fromStdString(item.getCurrency())));
         table->setItem(row, 6,  new QTableWidgetItem(QString::fromStdString(item.getUnit())));
         table->setItem(row, 7,  new QTableWidgetItem(QString::fromStdString(item.getCategory())));
+        table->setItem(row, 8,  new QTableWidgetItem(QString::fromStdString(item.getBarcode())));
 
         // Status column based on quantity
         const QString status = itemStatus(item.getQuantity());
@@ -109,10 +135,10 @@ void Main::populateTable(const std::vector<Item>& items)
         } else {
             statusItem->setForeground(QBrush(QColor(40, 180, 60)));
         }
-        table->setItem(row, 8, statusItem);
+        table->setItem(row, 9, statusItem);
 
-        table->setItem(row, 9,  new QTableWidgetItem(formatTime(item.getCreatedAt())));
-        table->setItem(row, 10, new QTableWidgetItem(formatTime(item.getModifiedAt())));
+        table->setItem(row, 10,  new QTableWidgetItem(formatTime(item.getCreatedAt())));
+        table->setItem(row, 11, new QTableWidgetItem(formatTime(item.getModifiedAt())));
     }
 }
 
@@ -135,11 +161,14 @@ void Main::onAddItem()
     QLineEdit *nameEdit = new QLineEdit(&dialog);
     QLineEdit *qtyEdit  = new QLineEdit(&dialog);
     QLineEdit *locEdit  = new QLineEdit(&dialog);
+    QLineEdit *barcodeEdit = new QLineEdit(&dialog);
+    barcodeEdit->setPlaceholderText("Optional");
 
     form.addRow("ID:",       idEdit);
     form.addRow("Name:",     nameEdit);
     form.addRow("Quantity:", qtyEdit);
     form.addRow("Location:", locEdit);
+    form.addRow("Barcode:",  barcodeEdit);
 
     QDialogButtonBox buttons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
                              Qt::Horizontal, &dialog);
@@ -159,8 +188,9 @@ void Main::onAddItem()
     }
 
     if (!wmsController.addItem(id, nameEdit->text().toStdString(),
-                               qty, locEdit->text().toStdString())) {
-        QMessageBox::warning(this, "Failed", "Item already exists or invalid data.");
+                               qty, locEdit->text().toStdString(),
+                               barcodeEdit->text().trimmed().toStdString())) {
+        QMessageBox::warning(this, "Failed", "Item already exists, invalid data, or duplicate barcode.");
         return;
     }
 
@@ -187,11 +217,50 @@ void Main::onUpdateItem()
     QLineEdit *qtyEdit  = new QLineEdit(ui->inventoryTable->item(selectedRow, 2)->text(), &dialog);
     QLineEdit *locEdit  = new QLineEdit(ui->inventoryTable->item(selectedRow, 3)->text(), &dialog);
     QLineEdit *priceEdit = new QLineEdit(ui->inventoryTable->item(selectedRow, 4)->text(), &dialog);
+    QLineEdit *barcodeEdit = new QLineEdit(
+        ui->inventoryTable->item(selectedRow, 8) ? ui->inventoryTable->item(selectedRow, 8)->text() : QString(),
+        &dialog);
+    barcodeEdit->setPlaceholderText("Optional");
 
     form.addRow("Name:",     nameEdit);
     form.addRow("Quantity:", qtyEdit);
     form.addRow("Location:", locEdit);
     form.addRow("Price:",    priceEdit);
+    form.addRow("Barcode:",  barcodeEdit);
+
+    auto* printBarcodeBtn = new QPushButton("Print label…", &dialog);
+    form.addRow(printBarcodeBtn);
+    connect(printBarcodeBtn, &QPushButton::clicked, &dialog, [&, id]() {
+        QString text = barcodeEdit->text().trimmed();
+        if (text.isEmpty())
+            text = QString("ID %1").arg(id);
+        QDialog printDlg(&dialog);
+        printDlg.setWindowTitle("Barcode label");
+        auto* vl = new QVBoxLayout(&printDlg);
+        auto* lab = new QLabel(text, &printDlg);
+        lab->setStyleSheet("QLabel { font-family: Consolas, monospace; font-size: 28px; padding: 24px; }");
+        lab->setAlignment(Qt::AlignCenter);
+        vl->addWidget(lab);
+        auto* h = new QHBoxLayout();
+        auto* pb = new QPushButton("Print…", &printDlg);
+        auto* cl = new QPushButton("Close", &printDlg);
+        h->addStretch();
+        h->addWidget(pb);
+        h->addWidget(cl);
+        vl->addLayout(h);
+        connect(cl, &QPushButton::clicked, &printDlg, &QDialog::accept);
+        connect(pb, &QPushButton::clicked, &printDlg, [text]() {
+            QPrinter printer(QPrinter::HighResolution);
+            QPrintDialog pd(&printer);
+            if (pd.exec() != QDialog::Accepted) return;
+            QTextDocument doc;
+            QFont f("Consolas", 22);
+            doc.setDefaultFont(f);
+            doc.setPlainText(text);
+            doc.print(&printer);
+        });
+        printDlg.exec();
+    });
 
     QDialogButtonBox buttons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
                              Qt::Horizontal, &dialog);
@@ -214,9 +283,12 @@ void Main::onUpdateItem()
     std::optional<double>       price = priceEdit->text().isEmpty()
                                         ? std::nullopt
                                         : std::optional<double>(priceEdit->text().toDouble(&okPrice));
+    std::optional<std::string>  bc    = barcodeEdit->text().trimmed().isEmpty()
+                                        ? std::nullopt
+                                        : std::optional<std::string>(barcodeEdit->text().trimmed().toStdString());
 
-    if (!wmsController.updateItem(id, name, qty, loc, price)) {
-        QMessageBox::warning(this, "Failed", "Could not update item.");
+    if (!wmsController.updateItem(id, name, qty, loc, price, bc)) {
+        QMessageBox::warning(this, "Failed", "Could not update item (duplicate barcode?).");
         return;
     }
 
@@ -249,12 +321,47 @@ void Main::onDeleteItem()
     ui->statusbar->showMessage("Item deleted.", 3000);
 }
 
+void Main::onSearchTextChanged(const QString& text)
+{
+    qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (text.isEmpty()) {
+        searchBurstStartMs = -1;
+        return;
+    }
+    if (searchBurstStartMs < 0 || (now - searchLastKeyMs) > 100)
+        searchBurstStartMs = now;
+    searchLastKeyMs = now;
+}
+
 // ─── Slot: Search ────────────────────────────────────────────────────────────
 void Main::onSearch()
 {
     QString query = ui->searchLineEdit->text().trimmed();
     if (query.isEmpty()) {
         loadInventory();
+        searchBurstStartMs = -1;
+        return;
+    }
+
+    qint64 now = QDateTime::currentMSecsSinceEpoch();
+    const bool scanLike = (searchBurstStartMs >= 0
+        && (now - searchBurstStartMs) <= 100
+        && !query.isEmpty());
+
+    if (scanLike) {
+        auto item = wmsController.getItemByBarcode(query.toStdString());
+        if (item.has_value()) {
+            populateTable({*item});
+            ui->inventoryTable->selectRow(0);
+            ui->inventoryTable->setFocus();
+            ui->statusbar->showMessage(
+                QString("Barcode match: %1").arg(QString::fromStdString(item->getName())), 5000);
+        } else {
+            populateTable({});
+            ui->statusbar->showMessage(
+                QString("No item found for barcode: %1").arg(query), 5000);
+        }
+        searchBurstStartMs = -1;
         return;
     }
 
@@ -535,20 +642,12 @@ void Main::showReceiptPreview(const Receipt& receipt)
 // ─── Slot: Generate Receipt (multi-item with customer lookup) ────────────────
 void Main::onGenerateReceipt()
 {
-    // Collect all selected rows
     QList<int> selectedRows;
     const auto selectedItems = ui->inventoryTable->selectionModel()->selectedRows();
     for (const auto& idx : selectedItems) {
         selectedRows.append(idx.row());
     }
 
-    if (selectedRows.isEmpty()) {
-        QMessageBox::information(this, "No Selection",
-            "Please select one or more rows to generate a receipt.");
-        return;
-    }
-
-    // Gather items from the selected rows
     struct SelectedItem {
         int id;
         QString name;
@@ -563,21 +662,29 @@ void Main::onGenerateReceipt()
         si.name   = ui->inventoryTable->item(row, 1)->text();
         si.maxQty = ui->inventoryTable->item(row, 2)->text().toInt();
         si.price  = ui->inventoryTable->item(row, 4)->text().toDouble();
-        if (si.maxQty <= 0) continue; // skip out-of-stock items
+        if (si.maxQty <= 0) continue;
         itemList.append(si);
     }
 
-    if (itemList.isEmpty()) {
+    if (!selectedRows.isEmpty() && itemList.isEmpty()) {
         QMessageBox::warning(this, "Out of Stock",
             "All selected items are out of stock.");
         return;
     }
 
-    // Dialog: let user set qty/price per item + customer
     QDialog dialog(this);
     dialog.setWindowTitle("Generate Receipt");
     dialog.setMinimumWidth(500);
     auto* mainLayout = new QVBoxLayout(&dialog);
+
+    auto* scanForm = new QFormLayout();
+    auto* scanEdit = new QLineEdit(&dialog);
+    scanEdit->setPlaceholderText("Scan or enter barcode to add item, then press Enter");
+    auto* scanWarn = new QLabel(&dialog);
+    scanWarn->setStyleSheet("QLabel { color: #c04040; }");
+    scanForm->addRow("Add by barcode:", scanEdit);
+    scanForm->addRow(scanWarn);
+    mainLayout->addLayout(scanForm);
 
     // ── Customer section with lookup/manual toggle ──
     auto* custGroup = new QFormLayout();
@@ -693,41 +800,100 @@ void Main::onGenerateReceipt()
         custResultList->setVisible(false);
     });
 
-    // Items table with editable qty/price
-    auto* itemTable = new QTableWidget(itemList.size(), 4, &dialog);
+    auto* itemTable = new QTableWidget(0, 4, &dialog);
     itemTable->setHorizontalHeaderLabels({"Item", "Max Qty", "Quantity", "Unit Price"});
     itemTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 
     QList<QSpinBox*> qtySpins;
     QList<QDoubleSpinBox*> priceSpins;
 
-    for (int i = 0; i < itemList.size(); ++i) {
-        const auto& si = itemList[i];
-        itemTable->setItem(i, 0, new QTableWidgetItem(
-            QString("#%1 %2").arg(si.id).arg(si.name)));
-        itemTable->setItem(i, 1, new QTableWidgetItem(QString::number(si.maxQty)));
+    const auto rebuildItemTable = [&]() {
+        itemTable->setRowCount(0);
+        qtySpins.clear();
+        priceSpins.clear();
+        for (int i = 0; i < itemList.size(); ++i) {
+            const auto& si = itemList[i];
+            int r = itemTable->rowCount();
+            itemTable->insertRow(r);
+            itemTable->setItem(r, 0, new QTableWidgetItem(
+                QString("#%1 %2").arg(si.id).arg(si.name)));
+            itemTable->setItem(r, 1, new QTableWidgetItem(QString::number(si.maxQty)));
 
-        auto* qtySpin = new QSpinBox(&dialog);
-        qtySpin->setRange(1, si.maxQty);
-        qtySpin->setValue(1);
-        itemTable->setCellWidget(i, 2, qtySpin);
-        qtySpins.append(qtySpin);
+            auto* qtySpin = new QSpinBox(&dialog);
+            qtySpin->setRange(1, std::max(1, si.maxQty));
+            qtySpin->setValue(1);
+            itemTable->setCellWidget(r, 2, qtySpin);
+            qtySpins.append(qtySpin);
 
-        auto* priceSpin = new QDoubleSpinBox(&dialog);
-        priceSpin->setDecimals(2);
-        priceSpin->setRange(0.0, 1000000000.0);
-        priceSpin->setValue(si.price);
-        itemTable->setCellWidget(i, 3, priceSpin);
-        priceSpins.append(priceSpin);
-    }
+            auto* priceSpin = new QDoubleSpinBox(&dialog);
+            priceSpin->setDecimals(2);
+            priceSpin->setRange(0.0, 1000000000.0);
+            priceSpin->setValue(si.price);
+            itemTable->setCellWidget(r, 3, priceSpin);
+            priceSpins.append(priceSpin);
+        }
+    };
+
+    rebuildItemTable();
+
+    connect(scanEdit, &QLineEdit::returnPressed, &dialog, [&]() {
+        QString bc = scanEdit->text().trimmed();
+        scanEdit->clear();
+        scanWarn->clear();
+        if (bc.isEmpty()) return;
+
+        auto inv = wmsController.getItemByBarcode(bc.toStdString());
+        if (!inv.has_value()) {
+            scanWarn->setText("Item not found");
+            return;
+        }
+        if (inv->getQuantity() <= 0) {
+            scanWarn->setText("Out of stock");
+            return;
+        }
+
+        int mergeIdx = -1;
+        for (int j = 0; j < itemList.size(); ++j) {
+            if (itemList[j].id == inv->getId()) {
+                mergeIdx = j;
+                break;
+            }
+        }
+
+        if (mergeIdx >= 0) {
+            auto fresh = wmsController.getItem(inv->getId());
+            if (!fresh.has_value()) return;
+            itemList[mergeIdx].maxQty = fresh->getQuantity();
+            itemTable->item(mergeIdx, 1)->setText(QString::number(itemList[mergeIdx].maxQty));
+            QSpinBox* sp = qtySpins[mergeIdx];
+            sp->setMaximum(std::max(1, itemList[mergeIdx].maxQty));
+            if (sp->value() < sp->maximum())
+                sp->setValue(sp->value() + 1);
+        } else {
+            SelectedItem si;
+            si.id = inv->getId();
+            si.name = QString::fromStdString(inv->getName());
+            si.maxQty = inv->getQuantity();
+            si.price = inv->getPrice();
+            itemList.append(si);
+            rebuildItemTable();
+        }
+    });
 
     mainLayout->addWidget(itemTable);
 
     QDialogButtonBox buttons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
                              Qt::Horizontal, &dialog);
     mainLayout->addWidget(&buttons);
-    connect(&buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
     connect(&buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    QObject::connect(&buttons, &QDialogButtonBox::accepted, &dialog, [&]() {
+        if (itemList.isEmpty()) {
+            QMessageBox::warning(&dialog, "Receipt",
+                "Add at least one item (select rows in the table or scan a barcode).");
+            return;
+        }
+        dialog.accept();
+    });
 
     if (dialog.exec() != QDialog::Accepted) return;
 
@@ -825,8 +991,13 @@ void Main::onGenerateReceipt()
     showReceiptPreview(receipt);
 }
 
-// ─── Slot: Receipt History (with customer filter) ────────────────────────────
 void Main::onReceiptHistory()
+{
+    openReceiptHistoryDialog(std::nullopt);
+}
+
+// ─── Receipt History (with customer filter) ────────────────────────────────
+void Main::openReceiptHistoryDialog(std::optional<int> preselectCustomerId)
 {
     std::vector<Receipt> receipts;
     try {
@@ -859,6 +1030,15 @@ void Main::onReceiptHistory()
         custFilterCombo->addItem(
             QString("#%1 — %2").arg(c.getId()).arg(QString::fromStdString(c.getName())),
             c.getId());
+    }
+    if (preselectCustomerId.has_value()) {
+        const int want = *preselectCustomerId;
+        for (int i = 0; i < custFilterCombo->count(); ++i) {
+            if (custFilterCombo->itemData(i).toInt() == want) {
+                custFilterCombo->setCurrentIndex(i);
+                break;
+            }
+        }
     }
     filterLayout->addWidget(custFilterCombo);
     filterLayout->addStretch();
@@ -911,8 +1091,7 @@ void Main::onReceiptHistory()
         }
     };
 
-    // Initially show all
-    populateReceiptTable(-1);
+    populateReceiptTable(custFilterCombo->currentData().toInt());
 
     // Filter on combo change
     connect(custFilterCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), [&](int idx) {
@@ -1377,8 +1556,389 @@ void Main::onManageCustomers()
     dialog.exec();
 }
 
+// ─── Reports & KPI dialog ────────────────────────────────────────────────────
+void Main::onOpenReports()
+{
+    auto* dlg = new QDialog(this);
+    dlg->setAttribute(Qt::WA_DeleteOnClose);
+    dlg->setModal(false);
+    dlg->setWindowTitle("WMS-X — Reports");
+    dlg->resize(920, 620);
+
+    auto& eng = wmsController.getReportEngine();
+
+    auto* root = new QVBoxLayout(dlg);
+
+    auto* cardRow = new QHBoxLayout();
+    auto* cardRev = new QLabel("—");
+    auto* cardRcpt = new QLabel("—");
+    auto* cardAov = new QLabel("—");
+    auto* cardLow = new QLabel("—");
+    for (auto* lb : {cardRev, cardRcpt, cardAov, cardLow}) {
+        lb->setWordWrap(true);
+        lb->setMinimumWidth(160);
+        lb->setStyleSheet(
+            "QLabel { background: #2a2a2a; color: #e8e8e8; padding: 12px; "
+            "border-radius: 6px; font-size: 13px; }");
+    }
+    auto mkCard = [&](const QString& title, QLabel* body) {
+        auto* box = new QVBoxLayout();
+        auto* t = new QLabel(QString("<b>%1</b>").arg(title), dlg);
+        t->setStyleSheet("QLabel { color: #aaa; }");
+        box->addWidget(t);
+        box->addWidget(body);
+        auto* w = new QWidget(dlg);
+        w->setLayout(box);
+        cardRow->addWidget(w);
+    };
+    mkCard("Total Revenue (EGP)", cardRev);
+    mkCard("Total Receipts", cardRcpt);
+    mkCard("Avg Order (EGP)", cardAov);
+    mkCard("Low-stock items (≤10)", cardLow);
+    root->addLayout(cardRow);
+
+    int lowStockThreshold = 10;
+    std::string reportPeriodFrom;
+    std::string reportPeriodTo;
+
+    auto refreshSummaryCards = [&]() {
+        SalesSummary s = eng.getSalesSummary(reportPeriodFrom, reportPeriodTo);
+        cardRev->setText(QString::number(s.totalRevenue, 'f', 2));
+        cardRcpt->setText(QString::number(s.totalReceipts));
+        cardAov->setText(QString::number(s.averageOrderValue, 'f', 2));
+        auto lowRows = eng.getLowStockItems(lowStockThreshold);
+        cardLow->setText(QString::number(static_cast<int>(lowRows.size())));
+    };
+    refreshSummaryCards();
+
+    auto* tabs = new QTabWidget(dlg);
+    root->addWidget(tabs, 1);
+
+    // ── Tab: Sales overview ──
+    auto* salesPage = new QWidget(dlg);
+    auto* salesLay = new QVBoxLayout(salesPage);
+    auto* rangeLay = new QHBoxLayout();
+    auto* fromDate = new QDateEdit(dlg);
+    auto* toDate = new QDateEdit(dlg);
+    fromDate->setCalendarPopup(true);
+    toDate->setCalendarPopup(true);
+    fromDate->setDate(QDate::currentDate().addMonths(-1));
+    toDate->setDate(QDate::currentDate());
+    auto* applyRangeBtn = new QPushButton("Apply range", dlg);
+    rangeLay->addWidget(new QLabel("From:", dlg));
+    rangeLay->addWidget(fromDate);
+    rangeLay->addWidget(new QLabel("To:", dlg));
+    rangeLay->addWidget(toDate);
+    rangeLay->addWidget(applyRangeBtn);
+    rangeLay->addStretch();
+    salesLay->addLayout(rangeLay);
+
+#ifdef WMS_GUI_HAS_CHARTS
+    auto* chartView = new QChartView(dlg);
+    chartView->setRenderHint(QPainter::Antialiasing);
+    salesLay->addWidget(chartView, 1);
+#else
+    auto* dailyFallback = new QTableWidget(0, 3, dlg);
+    dailyFallback->setHorizontalHeaderLabels({"Date", "Revenue (EGP)", "Receipts"});
+    dailyFallback->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    salesLay->addWidget(dailyFallback, 1);
+#endif
+
+    auto applySalesRange = [&]() {
+        reportPeriodFrom = fromDate->date().toString("yyyy-MM-dd").toStdString();
+        reportPeriodTo = toDate->date().toString("yyyy-MM-dd").toStdString();
+        refreshSummaryCards();
+        auto daily = eng.getDailyRevenue(reportPeriodFrom, reportPeriodTo);
+#ifdef WMS_GUI_HAS_CHARTS
+        auto* chart = new QChart();
+        chart->setTitle("Daily revenue");
+        auto* series = new QBarSeries();
+        auto* set = new QBarSet("EGP");
+        QStringList cats;
+        for (const auto& row : daily) {
+            *set << row.revenue;
+            cats << QString::fromStdString(row.date);
+        }
+        series->append(set);
+        chart->addSeries(series);
+        auto* axisX = new QBarCategoryAxis();
+        axisX->append(cats);
+        chart->addAxis(axisX, Qt::AlignBottom);
+        series->attachAxis(axisX);
+        auto* axisY = new QValueAxis();
+        chart->addAxis(axisY, Qt::AlignLeft);
+        series->attachAxis(axisY);
+        chart->legend()->setVisible(false);
+        chartView->setChart(chart);
+#else
+        dailyFallback->setRowCount(0);
+        for (const auto& row : daily) {
+            int r = dailyFallback->rowCount();
+            dailyFallback->insertRow(r);
+            dailyFallback->setItem(r, 0, new QTableWidgetItem(QString::fromStdString(row.date)));
+            dailyFallback->setItem(r, 1, new QTableWidgetItem(QString::number(row.revenue, 'f', 2)));
+            dailyFallback->setItem(r, 2, new QTableWidgetItem(QString::number(row.receiptCount)));
+        }
+#endif
+    };
+    connect(applyRangeBtn, &QPushButton::clicked, dlg, applySalesRange);
+    applySalesRange();
+
+    tabs->addTab(salesPage, "Sales overview");
+
+    // ── Tab: Top items ──
+    auto* topPage = new QWidget(dlg);
+    auto* topLay = new QVBoxLayout(topPage);
+    auto* topCtrl = new QHBoxLayout();
+    auto* topLimitCombo = new QComboBox(dlg);
+    topLimitCombo->addItem("Top 10", 10);
+    topLimitCombo->addItem("Top 20", 20);
+    topLimitCombo->addItem("Top 50", 50);
+    auto* topRefreshBtn = new QPushButton("Refresh", dlg);
+    topCtrl->addWidget(new QLabel("List:", dlg));
+    topCtrl->addWidget(topLimitCombo);
+    topCtrl->addWidget(topRefreshBtn);
+    topCtrl->addStretch();
+    topLay->addLayout(topCtrl);
+    auto* topTable = new QTableWidget(0, 5, dlg);
+    topTable->setHorizontalHeaderLabels({"Rank", "Item ID", "Name", "Qty sold", "Revenue (EGP)"});
+    topTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    topLay->addWidget(topTable);
+
+    auto fillTopItems = [&]() {
+        int lim = topLimitCombo->currentData().toInt();
+        auto rows = eng.getTopSellingItems(lim);
+        topTable->setRowCount(0);
+        int rank = 1;
+        for (const auto& r : rows) {
+            int row = topTable->rowCount();
+            topTable->insertRow(row);
+            topTable->setItem(row, 0, new QTableWidgetItem(QString::number(rank++)));
+            topTable->setItem(row, 1, new QTableWidgetItem(QString::number(r.itemId)));
+            topTable->setItem(row, 2, new QTableWidgetItem(QString::fromStdString(r.itemName)));
+            topTable->setItem(row, 3, new QTableWidgetItem(QString::number(r.totalQtySold)));
+            topTable->setItem(row, 4, new QTableWidgetItem(QString::number(r.totalRevenue, 'f', 2)));
+        }
+    };
+    connect(topRefreshBtn, &QPushButton::clicked, dlg, fillTopItems);
+    connect(topLimitCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), dlg, fillTopItems);
+    fillTopItems();
+    tabs->addTab(topPage, "Top items");
+
+    // ── Tab: Low stock ──
+    auto* lowPage = new QWidget(dlg);
+    auto* lowLay = new QVBoxLayout(lowPage);
+    auto* lowCtrl = new QHBoxLayout();
+    auto* lowThreshSpin = new QSpinBox(dlg);
+    lowThreshSpin->setRange(0, 1000000);
+    lowThreshSpin->setValue(10);
+    auto* lowRefreshBtn = new QPushButton("Refresh", dlg);
+    auto* restockBtn = new QPushButton("Restock selected…", dlg);
+    lowCtrl->addWidget(new QLabel("Threshold:", dlg));
+    lowCtrl->addWidget(lowThreshSpin);
+    lowCtrl->addWidget(lowRefreshBtn);
+    lowCtrl->addWidget(restockBtn);
+    lowCtrl->addStretch();
+    lowLay->addLayout(lowCtrl);
+    auto* lowTable = new QTableWidget(0, 4, dlg);
+    lowTable->setHorizontalHeaderLabels({"ID", "Name", "Qty", "Location"});
+    lowTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    lowTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    lowLay->addWidget(lowTable);
+
+    auto fillLowStock = [&]() {
+        lowStockThreshold = lowThreshSpin->value();
+        refreshSummaryCards();
+        auto rows = eng.getLowStockItems(lowStockThreshold);
+        lowTable->setRowCount(0);
+        for (const auto& r : rows) {
+            int row = lowTable->rowCount();
+            lowTable->insertRow(row);
+            lowTable->setItem(row, 0, new QTableWidgetItem(QString::number(r.itemId)));
+            lowTable->setItem(row, 1, new QTableWidgetItem(QString::fromStdString(r.itemName)));
+            lowTable->setItem(row, 2, new QTableWidgetItem(QString::number(r.currentQty)));
+            lowTable->setItem(row, 3, new QTableWidgetItem(QString::fromStdString(r.location)));
+            QColor bg;
+            if (r.currentQty <= 0)
+                bg = QColor(255, 200, 200);
+            else if (r.currentQty <= lowStockThreshold)
+                bg = QColor(255, 240, 180);
+            for (int c = 0; c < 4; ++c)
+                lowTable->item(row, c)->setBackground(bg);
+        }
+    };
+    connect(lowRefreshBtn, &QPushButton::clicked, dlg, fillLowStock);
+    connect(lowThreshSpin, QOverload<int>::of(&QSpinBox::valueChanged), dlg, fillLowStock);
+    connect(restockBtn, &QPushButton::clicked, dlg, [&]() {
+        int row = lowTable->currentRow();
+        if (row < 0) {
+            QMessageBox::information(dlg, "Reports", "Select a low-stock item.");
+            return;
+        }
+        int id = lowTable->item(row, 0)->text().toInt();
+        QDialog udlg(dlg);
+        udlg.setWindowTitle(QString("Update quantity — item %1").arg(id));
+        QFormLayout form(&udlg);
+        auto* qtyE = new QLineEdit(lowTable->item(row, 2)->text(), &udlg);
+        form.addRow("New quantity:", qtyE);
+        QDialogButtonBox ubtn(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, Qt::Horizontal, &udlg);
+        form.addRow(&ubtn);
+        connect(&ubtn, &QDialogButtonBox::accepted, &udlg, &QDialog::accept);
+        connect(&ubtn, &QDialogButtonBox::rejected, &udlg, &QDialog::reject);
+        if (udlg.exec() != QDialog::Accepted) return;
+        bool ok = false;
+        int nq = qtyE->text().toInt(&ok);
+        if (!ok || nq < 0) {
+            QMessageBox::warning(dlg, "Reports", "Invalid quantity.");
+            return;
+        }
+        if (!wmsController.updateItem(id, std::nullopt, nq, std::nullopt, std::nullopt, std::nullopt)) {
+            QMessageBox::warning(dlg, "Reports", "Update failed.");
+            return;
+        }
+        loadInventory();
+        fillLowStock();
+    });
+    fillLowStock();
+    tabs->addTab(lowPage, "Low stock");
+
+    // ── Tab: Customers ──
+    auto* custPage = new QWidget(dlg);
+    auto* custLay = new QVBoxLayout(custPage);
+    auto* custTable = new QTableWidget(0, 5, dlg);
+    custTable->setHorizontalHeaderLabels({"Rank", "Customer ID", "Name", "Receipts", "Total spent (EGP)"});
+    custTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    custTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    custLay->addWidget(custTable);
+    auto* viewRcptBtn = new QPushButton("View receipts for selected customer", dlg);
+    custLay->addWidget(viewRcptBtn);
+
+    auto fillCustomers = [&]() {
+        auto rows = eng.getTopCustomers(50);
+        custTable->setRowCount(0);
+        int rank = 1;
+        for (const auto& r : rows) {
+            int row = custTable->rowCount();
+            custTable->insertRow(row);
+            custTable->setItem(row, 0, new QTableWidgetItem(QString::number(rank++)));
+            QString idStr = r.customerId < 0 ? "—" : QString::number(r.customerId);
+            auto* idIt = new QTableWidgetItem(idStr);
+            if (r.customerId >= 0)
+                idIt->setData(Qt::UserRole, r.customerId);
+            custTable->setItem(row, 1, idIt);
+            custTable->setItem(row, 2, new QTableWidgetItem(QString::fromStdString(r.customerName)));
+            custTable->setItem(row, 3, new QTableWidgetItem(QString::number(r.totalReceipts)));
+            custTable->setItem(row, 4, new QTableWidgetItem(QString::number(r.totalSpent, 'f', 2)));
+        }
+    };
+    connect(viewRcptBtn, &QPushButton::clicked, dlg, [&]() {
+        int row = custTable->currentRow();
+        if (row < 0) {
+            QMessageBox::information(dlg, "Reports", "Select a customer row.");
+            return;
+        }
+        QVariant v = custTable->item(row, 1)->data(Qt::UserRole);
+        if (!v.isValid()) {
+            QMessageBox::information(dlg, "Reports", "Receipt filter applies to registered customers only.");
+            return;
+        }
+        openReceiptHistoryDialog(v.toInt());
+    });
+    fillCustomers();
+    tabs->addTab(custPage, "Customers");
+
+    cardLow->setCursor(Qt::PointingHandCursor);
+    class LowStockCardFilter : public QObject {
+    public:
+        QTabWidget* tabWidget = nullptr;
+        explicit LowStockCardFilter(QTabWidget* tw, QObject* parent)
+            : QObject(parent), tabWidget(tw) {}
+        bool eventFilter(QObject*, QEvent* e) override {
+            if (e->type() == QEvent::MouseButtonRelease)
+                tabWidget->setCurrentIndex(2);
+            return false;
+        }
+    };
+    auto* lowStockCardFilter = new LowStockCardFilter(tabs, dlg);
+    cardLow->installEventFilter(lowStockCardFilter);
+
+    auto* exportRepBtn = new QPushButton("Export current tab as text…", dlg);
+    root->addWidget(exportRepBtn);
+    connect(exportRepBtn, &QPushButton::clicked, dlg, [=]() {
+        QString path = QFileDialog::getSaveFileName(dlg, "Export report", "wms_report.txt",
+            "Text (*.txt);;All Files (*)");
+        if (path.isEmpty()) return;
+        QFile f(path);
+        if (!f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QMessageBox::warning(dlg, "Export", "Could not write file.");
+            return;
+        }
+        QTextStream out(&f);
+        const QDateTime gen = QDateTime::currentDateTime();
+        out << "=====================================\n";
+        out << "        WMS-X  REPORT\n";
+        out << "-------------------------------------\n";
+        out << "Generated: " << gen.toString("yyyy-MM-dd HH:mm:ss") << "\n";
+        out << "-------------------------------------\n";
+
+        const int ti = tabs->currentIndex();
+        if (ti == 0) {
+            out << "Report  : Sales overview\n";
+            out << "Period  : " << fromDate->date().toString("yyyy-MM-dd") << " -> "
+                << toDate->date().toString("yyyy-MM-dd") << "\n";
+            auto dr = eng.getDailyRevenue(reportPeriodFrom, reportPeriodTo);
+            for (const auto& r : dr)
+                out << QString::fromStdString(r.date) << '\t' << r.revenue << '\t' << r.receiptCount << "\n";
+        } else if (ti == 1) {
+            out << "Report  : Top selling items\n";
+            for (int r = 0; r < topTable->rowCount(); ++r) {
+                for (int c = 0; c < topTable->columnCount(); ++c) {
+                    if (c) out << '\t';
+                    auto* it = topTable->item(r, c);
+                    out << (it ? it->text() : QString());
+                }
+                out << "\n";
+            }
+        } else if (ti == 2) {
+            out << "Report  : Low stock (threshold " << lowThreshSpin->value() << ")\n";
+            for (int r = 0; r < lowTable->rowCount(); ++r) {
+                for (int c = 0; c < lowTable->columnCount(); ++c) {
+                    if (c) out << '\t';
+                    auto* it = lowTable->item(r, c);
+                    out << (it ? it->text() : QString());
+                }
+                out << "\n";
+            }
+        } else if (ti == 3) {
+            out << "Report  : Top customers\n";
+            for (int r = 0; r < custTable->rowCount(); ++r) {
+                for (int c = 0; c < custTable->columnCount(); ++c) {
+                    if (c) out << '\t';
+                    auto* it = custTable->item(r, c);
+                    out << (it ? it->text() : QString());
+                }
+                out << "\n";
+            }
+        }
+        out << "=====================================\n";
+        QMessageBox::information(dlg, "Export", "Report saved.");
+    });
+
+    dlg->show();
+}
 
 int main(int argc, char *argv[])
+{
+    QApplication app(argc, argv);
+    Main window;
+    window.show();
+    return app.exec();
+}
+</think>
+
+
+<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>
+Grep
 {
     QApplication app(argc, argv);
     Main window;

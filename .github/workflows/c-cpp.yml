@@ -28,6 +28,7 @@ jobs:
           src/storage/Storage.cpp src/storage/Receipt.cpp \
           src/storage/CustomerStorage.cpp \
           src/controllers/WmsControllers.cpp \
+          src/reports/ReportEngine.cpp \
           src/output/output.cpp src/cli/cli.cpp \
           vendor/SQLiteCpp/src/Backup.cpp \
           vendor/SQLiteCpp/src/Column.cpp \

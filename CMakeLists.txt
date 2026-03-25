@@ -19,6 +19,7 @@ add_executable(wms
     "${SRC_DIR}/storage/Receipt.cpp"
     "${SRC_DIR}/storage/CustomerStorage.cpp"
     "${SRC_DIR}/controllers/WmsControllers.cpp"
+    "${SRC_DIR}/reports/ReportEngine.cpp"
     "${SRC_DIR}/output/output.cpp"
     "${SRC_DIR}/cli/cli.cpp"
 )

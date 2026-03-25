@@ -5,6 +5,7 @@
 #include "storage/Storage.h"
 #include "storage/Receipt.h"
 #include "storage/CustomerStorage.h"
+#include "reports/ReportEngine.h"
 
 //needed libraries
 #include <unordered_map>
@@ -33,6 +34,7 @@ struct Task {
 class WmsControllers {
 private:
     Storage storage;
+    ReportEngine reportEngine;
     Inventory inventory;
     CustomerStorage customerStorage;
     std::priority_queue<Task> taskQueue;
@@ -44,6 +46,7 @@ private:
     std::string generateTaskId() const;
     std::vector<std::string> smartSplit(const std::string& input);
     bool isNumeric(const std::string& s);
+    bool barcodeTakenByOther(int excludeItemId, const std::string& barcode) const;
 
     // Command handlers
     bool cmdAdd(const Task& t);
@@ -57,21 +60,26 @@ public:
     bool initializeSystem();
     void saveAll();
 
-    bool addItem(int id, const std::string& name, int qty, const std::string& loc);
+    bool addItem(int id, const std::string& name, int qty, const std::string& loc,
+                 const std::string& barcode = "");
     bool removeItem(int id);
     bool updateItem(int id,
                     const std::optional<std::string>& name,
                     const std::optional<int>& qty,
                     const std::optional<std::string>& loc,
-                    const std::optional<double>& price);
+                    const std::optional<double>& price,
+                    const std::optional<std::string>& barcode = std::nullopt);
     bool adjustStock(int id, int delta);
     void listItems(size_t page = 0, size_t pageSize = 10);
     std::optional<Item> getItem(int id);
+    std::optional<Item> getItemByBarcode(const std::string& barcode);
     std::vector<Item> searchByName(const std::string& query);
     std::vector<Item> getAllItems();
+    std::vector<Item> getAllItemsWithBarcode();
 
     // Receipt support — expose DB for receipt operations
     SQLite::Database& getDB();
+    ReportEngine& getReportEngine();
 
     // ─────────────────────────────────────────────
     // Customer management

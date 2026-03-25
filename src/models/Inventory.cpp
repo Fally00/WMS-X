@@ -15,10 +15,13 @@ Inventory::Inventory(SQLite::Database& database)
 void Inventory::loadAll() {
     items.clear();
     SQLite::Statement query(db,
-        "SELECT id, name, quantity, location, price, currency, unit, category, "
+        "SELECT id, name, quantity, location, price, currency, unit, category, barcode, "
         "created_at, modified_at FROM items");
 
     while (query.executeStep()) {
+        std::string bc;
+        if (!query.getColumn(8).isNull())
+            bc = query.getColumn(8).getString();
         Item item(
             query.getColumn(0).getInt(),       // id
             query.getColumn(1).getString(),    // name
@@ -27,7 +30,8 @@ void Inventory::loadAll() {
             query.getColumn(4).getDouble(),    // price
             query.getColumn(5).getString(),    // currency
             query.getColumn(6).getString(),    // unit
-            query.getColumn(7).getString()     // category
+            query.getColumn(7).getString(),    // category
+            bc
         );
         items[item.getId()] = item;
     }
@@ -57,8 +61,8 @@ bool Inventory::removeItem(int itemId) {
 void Inventory::saveItem(const Item& item) {
     SQLite::Statement query(db,
         "INSERT OR REPLACE INTO items "
-        "(id, name, quantity, location, price, currency, unit, category, created_at, modified_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        "(id, name, quantity, location, price, currency, unit, category, barcode, created_at, modified_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
     query.bind(1, item.getId());
     query.bind(2, item.getName());
@@ -68,8 +72,9 @@ void Inventory::saveItem(const Item& item) {
     query.bind(6, item.getCurrency());
     query.bind(7, item.getUnit());
     query.bind(8, item.getCategory());
-    query.bind(9, static_cast<int64_t>(item.getCreatedAt()));
-    query.bind(10, static_cast<int64_t>(item.getModifiedAt()));
+    query.bind(9, item.getBarcode());
+    query.bind(10, static_cast<int64_t>(item.getCreatedAt()));
+    query.bind(11, static_cast<int64_t>(item.getModifiedAt()));
     query.exec();
 }
 
@@ -86,6 +91,14 @@ void Inventory::updateItemInDB(const Item& item) {
 Item* Inventory::findItem(int itemId) {
     auto it = items.find(itemId);
     if (it != items.end()) return &it->second;
+    return nullptr;
+}
+
+Item* Inventory::findByBarcode(const std::string& barcode) {
+    if (barcode.empty()) return nullptr;
+    for (auto& [id, item] : items) {
+        if (item.getBarcode() == barcode) return &item;
+    }
     return nullptr;
 }
 
@@ -121,7 +134,7 @@ void Inventory::displayItems(size_t page, size_t pageSize) const {
         return;
     }
 
-    std::vector<std::string> headers = {"ID", "Name", "Quantity", "Location"};
+    std::vector<std::string> headers = {"ID", "Name", "Quantity", "Location", "Barcode"};
     std::vector<std::vector<std::string>> rows;
 
     for (size_t i = start; i < end; ++i) {
@@ -130,7 +143,8 @@ void Inventory::displayItems(size_t page, size_t pageSize) const {
             std::to_string(item.getId()),
             item.getName(),
             std::to_string(item.getQuantity()),
-            item.getLocation()
+            item.getLocation(),
+            item.getBarcode().empty() ? "" : item.getBarcode()
         });
     }
 

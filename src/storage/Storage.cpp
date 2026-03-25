@@ -1,5 +1,8 @@
 #include "storage/Storage.h"
 
+#include <SQLiteCpp/Statement.h>
+#include <iostream>
+
 // ─────────────────────────────────────────────
 // Constructor — opens (or creates) the database
 // ─────────────────────────────────────────────
@@ -21,6 +24,7 @@ void Storage::initializeStorage() {
         "  currency    TEXT    NOT NULL DEFAULT 'EGP',"
         "  unit        TEXT    NOT NULL DEFAULT 'pcs',"
         "  category    TEXT    NOT NULL DEFAULT 'general',"
+        "  barcode     TEXT    NOT NULL DEFAULT '',"
         "  created_at  INTEGER NOT NULL,"
         "  modified_at INTEGER NOT NULL"
         ");"
@@ -71,6 +75,45 @@ void Storage::initializeStorage() {
         db.exec("ALTER TABLE receipts ADD COLUMN customer_id INTEGER DEFAULT NULL");
     } catch (...) {
         // Column already exists — safe to ignore
+    }
+
+    try {
+        db.exec("ALTER TABLE items ADD COLUMN barcode TEXT DEFAULT ''");
+    } catch (...) {
+        // Column already exists — safe to ignore
+    }
+
+    // Partial unique index: only non-empty barcodes must be unique.
+    // If the DB already contains duplicates, CREATE INDEX fails — detect first and warn
+    // instead of silently skipping enforcement.
+    bool barcodeDuplicates = false;
+    try {
+        SQLite::Statement dupQ(
+            db,
+            "SELECT barcode, GROUP_CONCAT(id) FROM items "
+            "WHERE barcode != '' GROUP BY barcode HAVING COUNT(*) > 1;");
+        while (dupQ.executeStep()) {
+            barcodeDuplicates = true;
+            std::cerr << "[WMS-X STORAGE] Duplicate non-empty barcode \""
+                      << dupQ.getColumn(0).getString() << "\" (item ids: "
+                      << dupQ.getColumn(1).getString() << ")\n";
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[WMS-X STORAGE] Barcode duplicate check failed: " << e.what() << '\n';
+    }
+
+    if (barcodeDuplicates) {
+        std::cerr << "[WMS-X STORAGE] idx_barcode_unique was not created. "
+                     "Fix duplicate barcodes, then restart the app to enable DB-level uniqueness.\n";
+    } else {
+        try {
+            db.exec(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_barcode_unique "
+                "ON items(barcode) WHERE barcode != '';");
+        } catch (const std::exception& e) {
+            std::cerr << "[WMS-X STORAGE] Could not create idx_barcode_unique: " << e.what()
+                      << '\n';
+        }
     }
 }
 

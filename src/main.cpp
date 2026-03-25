@@ -64,12 +64,14 @@ int main(int argc, char* argv[]) {
     OutputFormatter::printInfo("Type 'help' for commands, 'exit' to quit.");
 
     const std::vector<std::pair<std::string, std::string>> commands = {
-        {"add <id> <n> <quantity> <location>", "                                                Add new item"},
+        {"add <id> <n> <quantity> <location> [--barcode <v>]", "                             Add new item"},
         {"remove <id>", "                                                                  Remove item by id"},
-        {"update <id> [--name <n>] [--qty <q>] [--loc <l>] [--price <p>]",              " Update item fields"},
+        {"update <id> [--name ...] [--qty ...] [--loc ...] [--price ...] [--barcode <v>]", " Update item fields"},
+        {"scan <barcode>", "                                                         Lookup item by barcode"},
         {"list [page] [pageSize]", "                                                      List items (paged)"},
         {"search <id>", "                                                                    Find item by id"},
         {"search --name <query>", "                                                       Find items by name"},
+        {"report <summary|topitems|lowstock|customers|daily|slowitems> [args]", "           Business reports"},
         {"queue <COMMAND...>", "                                       Queue a task (ADD/REMOVE/LIST/SEARCH)"},
         {"runq [limit]", "                                                              Process queued tasks"},
         {"receipt <id qty price>... [customer] [--cid <id>]", "              Generate receipt (link customer)"},
@@ -110,6 +112,8 @@ int main(int argc, char* argv[]) {
     registry.registerCommand<UpdateCommand>("update");
     registry.registerCommand<ListCommand>("list");
     registry.registerCommand<SearchCommand>("search");
+    registry.registerCommand<ScanCommand>("scan");
+    registry.registerCommand<ReportCommand>("report");
     registry.registerCommand<QueueCommand>("queue");
     registry.registerCommand<ProcessQueueCommand>("runq");
     registry.registerCommand<ReceiptCommand>("receipt");

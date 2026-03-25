@@ -15,7 +15,10 @@ using namespace std;
 // Constructor
 // ─────────────────────────────────────────────
 WmsControllers::WmsControllers(const string& storagePath)
-    : storage(storagePath), inventory(storage.getDB()), customerStorage(storage.getDB()) {
+    : storage(storagePath),
+      reportEngine(storage.getDB()),
+      inventory(storage.getDB()),
+      customerStorage(storage.getDB()) {
 
     commandRegistry["ADD"]    = [this](const Task& t){ return cmdAdd(t); };
     commandRegistry["REMOVE"] = [this](const Task& t){ return cmdRemove(t); };
@@ -44,11 +47,27 @@ void WmsControllers::saveAll() {
     // All writes happen in addItem/removeItem/updateItem.
 }
 
-bool WmsControllers::addItem(int id, const string& name, int qty, const string& loc) {
+bool WmsControllers::barcodeTakenByOther(int excludeItemId, const string& barcode) const {
+    if (barcode.empty()) return false;
+    for (const auto& item : inventory.getAllItems()) {
+        if (item.getId() == excludeItemId) continue;
+        if (item.getBarcode() == barcode) return true;
+    }
+    return false;
+}
+
+bool WmsControllers::addItem(int id, const string& name, int qty, const string& loc,
+                             const string& barcode) {
     if (qty < 0) return false;
     if (inventory.findItem(id)) return false;
+    if (barcodeTakenByOther(-1, barcode)) return false;
 
     Item item(id, name, qty, loc);
+    try {
+        if (!barcode.empty()) item.setBarcode(barcode);
+    } catch (const std::exception&) {
+        return false;
+    }
     return inventory.addItem(item);
 }
 
@@ -66,15 +85,33 @@ std::optional<Item> WmsControllers::getItem(int id) {
     return std::nullopt;
 }
 
+std::optional<Item> WmsControllers::getItemByBarcode(const std::string& barcode) {
+    if (auto* item = inventory.findByBarcode(barcode)) return *item;
+    return std::nullopt;
+}
+
+std::vector<Item> WmsControllers::getAllItemsWithBarcode() {
+    std::vector<Item> out;
+    for (const auto& item : inventory.getAllItems()) {
+        if (!item.getBarcode().empty()) out.push_back(item);
+    }
+    return out;
+}
+
 bool WmsControllers::updateItem(int id,
                                  const std::optional<std::string>& name,
                                  const std::optional<int>& qty,
                                  const std::optional<std::string>& loc,
-                                 const std::optional<double>& price) {
+                                 const std::optional<double>& price,
+                                 const std::optional<std::string>& barcode) {
     Item* item = inventory.findItem(id);
     if (!item) return false;
 
     try {
+        if (barcode) {
+            if (barcodeTakenByOther(id, *barcode)) return false;
+            item->setBarcode(*barcode);
+        }
         if (name)  item->setName(*name);
         if (qty)   item->setQuantity(*qty);
         if (loc)   item->setLocation(*loc);
@@ -111,6 +148,10 @@ std::vector<Item> WmsControllers::getAllItems() {
 
 SQLite::Database& WmsControllers::getDB() {
     return storage.getDB();
+}
+
+ReportEngine& WmsControllers::getReportEngine() {
+    return reportEngine;
 }
 
 // ─────────────────────────────────────────────
