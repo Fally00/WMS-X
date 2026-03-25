@@ -15,6 +15,7 @@ private:
     std::string location;
 
     double price;
+    std::string barcode;
     std::string currency;
     std::string unit;
     std::string category;
@@ -38,7 +39,8 @@ public:
          double price = 0.0,
          const std::string& currency = "EGP",
          const std::string& unit = "pcs",
-         const std::string& category = "general");
+         const std::string& category = "general",
+         const std::string& barcode = "");
          
     // Getters and Setters for data members
     int getId() const;
@@ -49,6 +51,7 @@ public:
     const std::string& getCurrency() const;
     const std::string& getUnit() const;
     const std::string& getCategory() const;
+    const std::string& getBarcode() const;
     std::time_t getCreatedAt() const;
     std::time_t getModifiedAt() const;
     void changeQuantity(int delta);
@@ -56,6 +59,7 @@ public:
     void setName(const std::string& n);
     void setQuantity(int qty);
     void setPrice(double p);
+    void setBarcode(const std::string& b);
 
     bool operator==(const Item& o) const;
     bool operator<(const Item& o) const;

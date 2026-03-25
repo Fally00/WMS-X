@@ -24,6 +24,7 @@ public:
     bool addItem(const Item &item);               // returns false if duplicate
     bool removeItem(int itemId);                  // returns false if not found
     Item* findItem(int itemId);                   // returns nullptr if not found
+    Item* findByBarcode(const std::string& barcode); // nullptr if empty or not found
 
     // Persist single item changes to SQLite
     void saveItem(const Item& item);

@@ -20,7 +20,7 @@
       <item>
        <widget class="QLineEdit" name="searchLineEdit">
         <property name="placeholderText">
-         <string>Search for an item (Name or ID)...</string>
+         <string>Search by name, ID, or scan barcode (fast entry + Enter)...</string>
         </property>
        </widget>
       </item>
@@ -85,6 +85,11 @@
       <column>
        <property name="text">
         <string>Category</string>
+       </property>
+      </column>
+      <column>
+       <property name="text">
+        <string>Barcode</string>
        </property>
       </column>
       <column>
@@ -185,6 +190,20 @@
        <widget class="QPushButton" name="exportCsvBtn">
         <property name="text">
          <string>Export CSV</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="customersBtn">
+        <property name="text">
+         <string>Customers</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="reportsBtn">
+        <property name="text">
+         <string>Reports</string>
         </property>
        </widget>
       </item>
