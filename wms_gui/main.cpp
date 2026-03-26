@@ -694,11 +694,15 @@ void Main::onGenerateReceipt()
     auto* mainLayout = new QVBoxLayout(&dialog);
 
     auto* scanForm = new QFormLayout();
+    auto* scanRow = new QHBoxLayout();
     auto* scanEdit = new QLineEdit(&dialog);
-    scanEdit->setPlaceholderText("Scan or enter barcode to add item, then press Enter");
+    scanEdit->setPlaceholderText("Scan or enter barcode");
+    auto* addScanBtn = new QPushButton("Add", &dialog);
+    scanRow->addWidget(scanEdit, 1);
+    scanRow->addWidget(addScanBtn);
     auto* scanWarn = new QLabel(&dialog);
     scanWarn->setStyleSheet("QLabel { color: #c04040; }");
-    scanForm->addRow("Add by barcode:", scanEdit);
+    scanForm->addRow("Add by barcode:", scanRow);
     scanForm->addRow(scanWarn);
     mainLayout->addLayout(scanForm);
 
@@ -863,6 +867,7 @@ void Main::onGenerateReceipt()
         }
 
         auto inv = wmsController.getItemByBarcode(bc.toStdString());
+        // Fallback: if no barcode match and scanned text is numeric, treat it as item ID.
         if (!inv.has_value()) {
             scanWarn->setText("Item not found");
             scanEdit->setFocus();
