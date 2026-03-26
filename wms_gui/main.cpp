@@ -857,7 +857,7 @@ void Main::onGenerateReceipt()
     rebuildItemTable();
     scanEdit->setFocus();
 
-    const auto addItemFromScan = [&]() {
+    connect(scanEdit, &QLineEdit::returnPressed, &dialog, [&]() {
         QString bc = normalizeScannedBarcode(scanEdit->text());
         scanEdit->clear();
         scanWarn->clear();
@@ -869,12 +869,7 @@ void Main::onGenerateReceipt()
         auto inv = wmsController.getItemByBarcode(bc.toStdString());
         // Fallback: if no barcode match and scanned text is numeric, treat it as item ID.
         if (!inv.has_value()) {
-            bool okId = false;
-            int id = bc.toInt(&okId);
-            if (okId) inv = wmsController.getItem(id);
-        }
-        if (!inv.has_value()) {
-            scanWarn->setText("Item not found (barcode/ID)");
+            scanWarn->setText("Item not found");
             scanEdit->setFocus();
             return;
         }
@@ -928,10 +923,7 @@ void Main::onGenerateReceipt()
             priceSpins.append(priceSpin);
         }
         scanEdit->setFocus();
-    };
-
-    connect(scanEdit, &QLineEdit::returnPressed, &dialog, addItemFromScan);
-    connect(addScanBtn, &QPushButton::clicked, &dialog, addItemFromScan);
+    });
 
     mainLayout->addWidget(itemTable);
 
