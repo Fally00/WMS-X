@@ -648,6 +648,16 @@ void Main::showReceiptPreview(const Receipt& receipt)
 // ─── Slot: Generate Receipt (multi-item with customer lookup) ────────────────
 void Main::onGenerateReceipt()
 {
+    const auto normalizeScannedBarcode = [](const QString& raw) {
+        QString cleaned;
+        cleaned.reserve(raw.size());
+        for (const QChar ch : raw) {
+            // Keep printable characters, ignore hidden scanner suffixes like CR/LF/TAB.
+            if (ch.isPrint()) cleaned.append(ch);
+        }
+        return cleaned.trimmed();
+    };
+
     QList<int> selectedRows;
     const auto selectedItems = ui->inventoryTable->selectionModel()->selectedRows();
     for (const auto& idx : selectedItems) {
@@ -684,11 +694,15 @@ void Main::onGenerateReceipt()
     auto* mainLayout = new QVBoxLayout(&dialog);
 
     auto* scanForm = new QFormLayout();
+    auto* scanRow = new QHBoxLayout();
     auto* scanEdit = new QLineEdit(&dialog);
-    scanEdit->setPlaceholderText("Scan or enter barcode to add item, then press Enter");
+    scanEdit->setPlaceholderText("Scan or enter barcode");
+    auto* addScanBtn = new QPushButton("Add", &dialog);
+    scanRow->addWidget(scanEdit, 1);
+    scanRow->addWidget(addScanBtn);
     auto* scanWarn = new QLabel(&dialog);
     scanWarn->setStyleSheet("QLabel { color: #c04040; }");
-    scanForm->addRow("Add by barcode:", scanEdit);
+    scanForm->addRow("Add by barcode:", scanRow);
     scanForm->addRow(scanWarn);
     mainLayout->addLayout(scanForm);
 
@@ -841,20 +855,32 @@ void Main::onGenerateReceipt()
     };
 
     rebuildItemTable();
+    scanEdit->setFocus();
 
-    connect(scanEdit, &QLineEdit::returnPressed, &dialog, [&]() {
-        QString bc = scanEdit->text().trimmed();
+    const auto addItemFromScan = [&]() {
+        QString bc = normalizeScannedBarcode(scanEdit->text());
         scanEdit->clear();
         scanWarn->clear();
-        if (bc.isEmpty()) return;
+        if (bc.isEmpty()) {
+            scanEdit->setFocus();
+            return;
+        }
 
         auto inv = wmsController.getItemByBarcode(bc.toStdString());
+        // Fallback: if no barcode match and scanned text is numeric, treat it as item ID.
         if (!inv.has_value()) {
-            scanWarn->setText("Item not found");
+            bool okId = false;
+            int id = bc.toInt(&okId);
+            if (okId) inv = wmsController.getItem(id);
+        }
+        if (!inv.has_value()) {
+            scanWarn->setText("Item not found (barcode/ID)");
+            scanEdit->setFocus();
             return;
         }
         if (inv->getQuantity() <= 0) {
             scanWarn->setText("Out of stock");
+            scanEdit->setFocus();
             return;
         }
 
@@ -901,7 +927,11 @@ void Main::onGenerateReceipt()
             itemTable->setCellWidget(r, 3, priceSpin);
             priceSpins.append(priceSpin);
         }
-    });
+        scanEdit->setFocus();
+    };
+
+    connect(scanEdit, &QLineEdit::returnPressed, &dialog, addItemFromScan);
+    connect(addScanBtn, &QPushButton::clicked, &dialog, addItemFromScan);
 
     mainLayout->addWidget(itemTable);
 
