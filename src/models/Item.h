@@ -22,7 +22,7 @@ private:
 
     std::time_t createdAt;
     std::time_t modifiedAt;
-    std::vector<std::string> auditLog;
+
 
     void touch();
     void validate() const;

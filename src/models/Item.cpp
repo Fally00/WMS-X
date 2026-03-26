@@ -78,34 +78,34 @@ std::time_t Item::getModifiedAt() const { return modifiedAt; }
 
 void Item::setLocation(const std::string& loc) {
     if (!isValidLocation(loc)) throw std::invalid_argument("Invalid location");
-    auditLog.push_back("Location: " + location + " -> " + loc);
+
     location = loc;
     touch();
 }
 
 void Item::setName(const std::string& n) {
     if (n.empty()) throw std::invalid_argument("Name must not be empty");
-    auditLog.push_back("Name: " + name + " -> " + n);
+
     name = n;
     touch();
 }
 
 void Item::setQuantity(int qty) {
     if (qty < 0) throw std::invalid_argument("Quantity must be non-negative");
-    auditLog.push_back("Qty: " + std::to_string(quantity) + " -> " + std::to_string(qty));
+
     quantity = qty;
     touch();
 }
 
 void Item::setPrice(double p) {
     if (p < 0.0) throw std::invalid_argument("Price cannot be negative");
-    auditLog.push_back("Price: " + std::to_string(price) + " -> " + std::to_string(p));
+
     price = p;
     touch();
 }
 
 void Item::setBarcode(const std::string& b) {
-    auditLog.push_back("Barcode: " + barcode + " -> " + b);
+
     barcode = b;
     validate();
     touch();
@@ -137,7 +137,7 @@ void Item::changeQuantity(int delta) {
     int old = quantity;
     quantity += delta;
     if (quantity < 0) throw std::invalid_argument("Insufficient stock");
-    auditLog.push_back("Qty " + std::to_string(old) + " -> " + std::to_string(quantity));
+
     touch();
 }
 

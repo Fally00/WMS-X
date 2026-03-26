@@ -104,8 +104,16 @@ Item* Inventory::findByBarcode(const std::string& barcode) {
 
 std::vector<Item> Inventory::searchByName(const std::string &query) const {
     std::vector<Item> results;
+    std::string lowerQuery = query;
+    std::transform(lowerQuery.begin(), lowerQuery.end(), lowerQuery.begin(),
+                   [](unsigned char c){ return std::tolower(c); });
+
     for (const auto &[id, item] : items) {
-        if (item.getName().find(query) != std::string::npos) {
+        std::string lowerName = item.getName();
+        std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(),
+                       [](unsigned char c){ return std::tolower(c); });
+        
+        if (lowerName.find(lowerQuery) != std::string::npos) {
             results.push_back(item);
         }
     }

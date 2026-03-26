@@ -17,6 +17,7 @@
 #include <vector>
 #include <memory>
 #include <string>
+#include <cstdlib>
 
 /*==========================================
      = Main command processing loop  
@@ -99,7 +100,9 @@ int main(int argc, char* argv[]) {
     }
 
     // Initialize system
-    WmsControllers wms("inventory.db");
+    std::string dbPath = "inventory.db";
+    if (const char* envPath = std::getenv("WMS_DB_PATH")) dbPath = envPath;
+    WmsControllers wms(dbPath);
     if (!wms.initializeSystem()) {
         OutputFormatter::printError("Failed to initialize WMS. Exiting.");
         return 1;
