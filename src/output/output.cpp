@@ -140,7 +140,7 @@ void OutputFormatter::printBanner() {
 void OutputFormatter::printLogo(const std::string&) {
     printBanner();
     setColor(Color::Cyan);
-    write("WMS-X 1.5.0 Stable DB Edition\n");
+    write("WMS-X 2.0.1 GUI/CLI Edition\n");
     resetColor();
 }
 
@@ -245,6 +245,7 @@ void OutputFormatter::printTable(const std::vector<std::string>& h,
         write("\n");
     };
 
+    if (page == 0) page = r.size();
     for (size_t p = 0; p < r.size(); p += page) {
         printDivider();
         printRow(h, true);

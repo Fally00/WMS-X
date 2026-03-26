@@ -1,11 +1,13 @@
 #include "main.h"
 #include "ui_main.h"
 
-#include <QApplication>
-#include <QFont>
+#include <QAbstractItemView>
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
+#include <QTextDocument>
+#include <QApplication>
 #include <QInputDialog>
+#include <QPrintDialog>
 #include <QListWidget>
 #include <QFileDialog>
 #include <QHeaderView>
@@ -14,34 +16,33 @@
 #include <QHBoxLayout>
 #include <QMessageBox>
 #include <QTextStream>
+#include <QTabWidget>
+#include <QDateTime>
 #include <QTextEdit>
+#include <QDateEdit>
 #include <QCheckBox>
 #include <QComboBox>
 #include <algorithm>
+#include <QSpinBox>
+#include <QPrinter>
+#include <optional>
 #include <iomanip>
 #include <sstream>
-#include <QDateTime>
-#include <QSpinBox>
 #include <QDialog>
 #include <QString>
 #include <QLabel>
-#include <QFile>
-#include <QDateEdit>
-#include <QTabWidget>
-#include <QPrinter>
-#include <QPrintDialog>
-#include <QAbstractItemView>
-#include <QTextDocument>
 #include <QEvent>
-#include <optional>
+#include <QFile>
+#include <QFont>
+#include <cstdlib>
 
 #ifdef WMS_GUI_HAS_CHARTS
+#include <QtCharts/QBarCategoryAxis>
 #include <QtCharts/QBarSeries>
+#include <QtCharts/QChartView>
+#include <QtCharts/QValueAxis>
 #include <QtCharts/QBarSet>
 #include <QtCharts/QChart>
-#include <QtCharts/QChartView>
-#include <QtCharts/QBarCategoryAxis>
-#include <QtCharts/QValueAxis>
 #include <QPainter>
 #endif
 
@@ -49,7 +50,7 @@
 Main::Main(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::Main)
-    , wmsController("../inventory.db")
+    , wmsController(std::getenv("WMS_DB_PATH") ? std::getenv("WMS_DB_PATH") : "inventory.db")
 {
     ui->setupUi(this);
     setWindowTitle("WMS-X — Warehouse Management System");
@@ -160,6 +161,9 @@ void Main::onAddItem()
     QLineEdit *nameEdit = new QLineEdit(&dialog);
     QLineEdit *qtyEdit  = new QLineEdit(&dialog);
     QLineEdit *locEdit  = new QLineEdit(&dialog);
+    QLineEdit *priceEdit = new QLineEdit(&dialog);
+    QLineEdit *unitEdit = new QLineEdit(&dialog);
+    QLineEdit *categoryEdit = new QLineEdit(&dialog);
     QLineEdit *barcodeEdit = new QLineEdit(&dialog);
     barcodeEdit->setPlaceholderText("Optional");
 
@@ -167,6 +171,9 @@ void Main::onAddItem()
     form.addRow("Name:",     nameEdit);
     form.addRow("Quantity:", qtyEdit);
     form.addRow("Location:", locEdit);
+    form.addRow("Price:",    priceEdit);
+    form.addRow("Unit:",     unitEdit);
+    form.addRow("Category:", categoryEdit);
     form.addRow("Barcode:",  barcodeEdit);
 
     QDialogButtonBox buttons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
@@ -641,6 +648,16 @@ void Main::showReceiptPreview(const Receipt& receipt)
 // ─── Slot: Generate Receipt (multi-item with customer lookup) ────────────────
 void Main::onGenerateReceipt()
 {
+    const auto normalizeScannedBarcode = [](const QString& raw) {
+        QString cleaned;
+        cleaned.reserve(raw.size());
+        for (const QChar ch : raw) {
+            // Keep printable characters, ignore hidden scanner suffixes like CR/LF/TAB.
+            if (ch.isPrint()) cleaned.append(ch);
+        }
+        return cleaned.trimmed();
+    };
+
     QList<int> selectedRows;
     const auto selectedItems = ui->inventoryTable->selectionModel()->selectedRows();
     for (const auto& idx : selectedItems) {
@@ -834,20 +851,26 @@ void Main::onGenerateReceipt()
     };
 
     rebuildItemTable();
+    scanEdit->setFocus();
 
     connect(scanEdit, &QLineEdit::returnPressed, &dialog, [&]() {
-        QString bc = scanEdit->text().trimmed();
+        QString bc = normalizeScannedBarcode(scanEdit->text());
         scanEdit->clear();
         scanWarn->clear();
-        if (bc.isEmpty()) return;
+        if (bc.isEmpty()) {
+            scanEdit->setFocus();
+            return;
+        }
 
         auto inv = wmsController.getItemByBarcode(bc.toStdString());
         if (!inv.has_value()) {
             scanWarn->setText("Item not found");
+            scanEdit->setFocus();
             return;
         }
         if (inv->getQuantity() <= 0) {
             scanWarn->setText("Out of stock");
+            scanEdit->setFocus();
             return;
         }
 
@@ -875,8 +898,26 @@ void Main::onGenerateReceipt()
             si.maxQty = inv->getQuantity();
             si.price = inv->getPrice();
             itemList.append(si);
-            rebuildItemTable();
+            
+            int r = itemTable->rowCount();
+            itemTable->insertRow(r);
+            itemTable->setItem(r, 0, new QTableWidgetItem(QString("#%1 %2").arg(si.id).arg(si.name)));
+            itemTable->setItem(r, 1, new QTableWidgetItem(QString::number(si.maxQty)));
+            
+            auto* qtySpin = new QSpinBox(&dialog);
+            qtySpin->setRange(1, std::max(1, si.maxQty));
+            qtySpin->setValue(1);
+            itemTable->setCellWidget(r, 2, qtySpin);
+            qtySpins.append(qtySpin);
+            
+            auto* priceSpin = new QDoubleSpinBox(&dialog);
+            priceSpin->setDecimals(2);
+            priceSpin->setRange(0.0, 1000000000.0);
+            priceSpin->setValue(si.price);
+            itemTable->setCellWidget(r, 3, priceSpin);
+            priceSpins.append(priceSpin);
         }
+        scanEdit->setFocus();
     });
 
     mainLayout->addWidget(itemTable);
@@ -924,7 +965,9 @@ void Main::onGenerateReceipt()
     // Store supplier name to save after receipt is created
     QString supplierName = supplierEdit->text().trimmed();
 
+    bool stockWarning = false;
     try {
+        SQLite::Transaction transaction(wmsController.getDB());
         for (int i = 0; i < itemList.size(); ++i) {
             auto item = wmsController.getItem(itemList[i].id);
             if (!item) continue;
@@ -960,19 +1003,20 @@ void Main::onGenerateReceipt()
             upd.bind(2, receipt.getReceiptNumber());
             upd.exec();
         }
+
+        // Deduct stock for each item
+        for (int i = 0; i < itemList.size(); ++i) {
+            int qty = qtySpins[i]->value();
+            if (!wmsController.adjustStock(itemList[i].id, -qty)) {
+                stockWarning = true;
+            }
+        }
+
+        transaction.commit();
     } catch (const std::exception& e) {
         QMessageBox::warning(this, "Receipt Failed",
             QString("Could not save receipt: %1").arg(e.what()));
         return;
-    }
-
-    // Deduct stock for each item
-    bool stockWarning = false;
-    for (int i = 0; i < itemList.size(); ++i) {
-        int qty = qtySpins[i]->value();
-        if (!wmsController.adjustStock(itemList[i].id, -qty)) {
-            stockWarning = true;
-        }
     }
 
     loadInventory();
@@ -1758,12 +1802,20 @@ void Main::onOpenReports()
             lowTable->setItem(row, 2, new QTableWidgetItem(QString::number(r.currentQty)));
             lowTable->setItem(row, 3, new QTableWidgetItem(QString::fromStdString(r.location)));
             QColor bg;
-            if (r.currentQty <= 0)
+            bool setBg = false;
+            if (r.currentQty <= 0) {
                 bg = QColor(255, 200, 200);
-            else if (r.currentQty <= lowStockThreshold)
+                setBg = true;
+            } else if (r.currentQty <= lowStockThreshold) {
                 bg = QColor(255, 240, 180);
-            for (int c = 0; c < 4; ++c)
-                lowTable->item(row, c)->setBackground(bg);
+                setBg = true;
+            }
+            for (int c = 0; c < 4; ++c) {
+                if (setBg) {
+                    lowTable->item(row, c)->setBackground(bg);
+                    lowTable->item(row, c)->setForeground(QColor("#1a1a1a"));
+                }
+            }
         }
     };
     connect(lowRefreshBtn, &QPushButton::clicked, dlg, fillLowStock);

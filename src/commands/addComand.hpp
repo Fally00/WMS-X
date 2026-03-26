@@ -497,6 +497,7 @@ public:
         }
 
         try {
+            SQLite::Transaction transaction(ctx.wms.getDB());
             receipt.print();
             receipt.saveToDB(ctx.wms.getDB());
 
@@ -513,19 +514,20 @@ public:
                         "Warning: could not link customer to receipt: " + std::string(e.what()));
                 }
             }
+
+            // Deduct sold quantities from inventory
+            for (size_t i = 0; i < itemsEnd; i += 3) {
+                int itemId = std::stoi(args[i]);
+                int qty    = std::stoi(args[i + 1]);
+                if (!ctx.wms.adjustStock(itemId, -qty)) {
+                    OutputFormatter::printWarning(
+                        "Warning: could not deduct stock for item " + args[i]);
+                }
+            }
+
+            transaction.commit();
         } catch (const std::exception& e) {
             return Result<void>::fail(std::string("Failed to generate receipt: ") + e.what());
-        }
-
-        // Deduct sold quantities from inventory now that the receipt is committed
-        for (size_t i = 0; i < itemsEnd; i += 3) {
-            int itemId = std::stoi(args[i]);
-            int qty    = std::stoi(args[i + 1]);
-            if (!ctx.wms.adjustStock(itemId, -qty)) {
-                OutputFormatter::printWarning(
-                    "Warning: could not deduct stock for item " + args[i] +
-                    " (receipt saved, inventory may be inconsistent)");
-            }
         }
 
         if (ctx.autosave) ctx.wms.saveAll();

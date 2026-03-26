@@ -91,8 +91,16 @@ Customer* CustomerStorage::findCustomer(int id) {
 
 std::vector<Customer> CustomerStorage::searchByName(const std::string& query) const {
     std::vector<Customer> results;
+    std::string lowerQuery = query;
+    std::transform(lowerQuery.begin(), lowerQuery.end(), lowerQuery.begin(),
+                   [](unsigned char c){ return std::tolower(c); });
+
     for (const auto& [id, customer] : customers) {
-        if (customer.getName().find(query) != std::string::npos) {
+        std::string lowerName = customer.getName();
+        std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(),
+                       [](unsigned char c){ return std::tolower(c); });
+
+        if (lowerName.find(lowerQuery) != std::string::npos) {
             results.push_back(customer);
         }
     }
