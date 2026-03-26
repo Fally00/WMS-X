@@ -60,27 +60,27 @@ int main(int argc, char* argv[]) {
     OutputFormatter::initialize(enableColor);
 
     OutputFormatter::printLogo();
-    OutputFormatter::printInfo("Warehouse Management System (WMS-X) v1.5.0 Stable DB Edition");
+    OutputFormatter::printInfo("Warehouse Management System (WMS-X) v2.0.1 GUI/CLI Edition");
     OutputFormatter::printInfo("Type 'help' for commands, 'exit' to quit.");
 
     const std::vector<std::pair<std::string, std::string>> commands = {
-        {"add <id> <n> <quantity> <location> [--barcode <v>]", "                             Add new item"},
+        {"add <id> <n> <quantity> <location> [--barcode <v>]", "                                Add new item"},
         {"remove <id>", "                                                                  Remove item by id"},
         {"update <id> [--name ...] [--qty ...] [--loc ...] [--price ...] [--barcode <v>]", " Update item fields"},
-        {"scan <barcode>", "                                                         Lookup item by barcode"},
+        {"scan <barcode>", "                                                          Lookup item by barcode"},
         {"list [page] [pageSize]", "                                                      List items (paged)"},
         {"search <id>", "                                                                    Find item by id"},
         {"search --name <query>", "                                                       Find items by name"},
         {"report <summary|topitems|lowstock|customers|daily|slowitems> [args]", "           Business reports"},
         {"queue <COMMAND...>", "                                       Queue a task (ADD/REMOVE/LIST/SEARCH)"},
         {"runq [limit]", "                                                              Process queued tasks"},
-        {"receipt <id qty price>... [customer] [--cid <id>]", "              Generate receipt (link customer)"},
-        {"customer add <name> <phone> <addr> [email]", "                                  Add new customer"},
-        {"customer remove <id>", "                                                   Remove customer by ID"},
-        {"customer list", "                                                             List all customers"},
-        {"customer search <id>", "                                                  Find customer by ID"},
-        {"customer search --name <query>", "                                       Find customers by name"},
-        {"customer update <id> [--name] [--phone] [--addr] [--email]", "         Update customer fields"},
+        {"receipt <id qty price>... [customer] [--cid <id>]", "             Generate receipt (link customer)"},
+        {"customer add <name> <phone> <addr> [email]", "                                    Add new customer"},
+        {"customer remove <id>", "                                                     Remove customer by ID"},
+        {"customer list", "                                                               List all customers"},
+        {"customer search <id>", "                                                       Find customer by ID"},
+        {"customer search --name <query>", "                                          Find customers by name"},
+        {"customer update <id> [--name] [--phone] [--addr] [--email]", "              Update customer fields"},
         {"help", "                                                                            Show this help"},
         {"exit", "                                                                                  Quit WMS"},
         {"version/-v/--version", "                                                              Show version"},
@@ -94,7 +94,7 @@ int main(int argc, char* argv[]) {
         return 0;
     }
     if (opt.showVersion) {
-        OutputFormatter::printVersion("1.5.0");
+        OutputFormatter::printVersion("2.0.1");
         return 0;
     }
 
@@ -131,7 +131,7 @@ int main(int argc, char* argv[]) {
         std::transform(cmd.begin(), cmd.end(), cmd.begin(), ::tolower);
 
         if (cmd == "version" || cmd == "-v" || cmd == "--version") {
-            OutputFormatter::printVersion("1.5.0");
+            OutputFormatter::printVersion("2.0.1");
             return 0;
         }
 
@@ -172,7 +172,7 @@ int main(int argc, char* argv[]) {
         }
 
         if (input == "version" || input == "-v" || input == "--version") {
-            OutputFormatter::printVersion("1.5.0");
+            OutputFormatter::printVersion("2.0.1");
             continue;
         }
 

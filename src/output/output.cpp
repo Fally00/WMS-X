@@ -140,7 +140,7 @@ void OutputFormatter::printBanner() {
 void OutputFormatter::printLogo(const std::string&) {
     printBanner();
     setColor(Color::Cyan);
-    write("WMS-X 1.5.0 Stable DB Edition\n");
+    write("WMS-X 2.0.1 GUI/CLI Edition\n");
     resetColor();
 }
 
