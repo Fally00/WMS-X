@@ -25,6 +25,7 @@ public:
     bool removeItem(int itemId);                  // returns false if not found
     Item* findItem(int itemId);                   // returns nullptr if not found
     Item* findByBarcode(const std::string& barcode); // nullptr if empty or not found
+    bool isBarcodeTaken(const std::string& barcode, int excludeId) const;
 
     // Persist single item changes to SQLite
     void saveItem(const Item& item);

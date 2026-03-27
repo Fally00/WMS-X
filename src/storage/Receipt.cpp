@@ -154,36 +154,43 @@ void Receipt::print() const {
 // Save Receipt to SQLite
 // ─────────────────────────────────────────────
 void Receipt::saveToDB(SQLite::Database& db) const {
-    // Insert receipt header
-    SQLite::Statement insertReceipt(db,
-        "INSERT INTO receipts (receipt_number, timestamp, customer_name, "
-        "customer_phone, customer_email, subtotal, tax, total) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    SQLite::Transaction transaction(db);
+    try {
+        // Insert receipt header
+        SQLite::Statement insertReceipt(db,
+            "INSERT INTO receipts (receipt_number, timestamp, customer_name, "
+            "customer_phone, customer_email, subtotal, tax, total) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
 
-    insertReceipt.bind(1, receiptNumber);
-    insertReceipt.bind(2, formatTime(timestamp));
-    insertReceipt.bind(3, customerName);
-    insertReceipt.bind(4, customerPhone);
-    insertReceipt.bind(5, customerEmail);
-    insertReceipt.bind(6, subtotal());
-    insertReceipt.bind(7, tax());
-    insertReceipt.bind(8, total());
-    insertReceipt.exec();
+        insertReceipt.bind(1, receiptNumber);
+        insertReceipt.bind(2, formatTime(timestamp));
+        insertReceipt.bind(3, customerName);
+        insertReceipt.bind(4, customerPhone);
+        insertReceipt.bind(5, customerEmail);
+        insertReceipt.bind(6, subtotal());
+        insertReceipt.bind(7, tax());
+        insertReceipt.bind(8, total());
+        insertReceipt.exec();
 
-    // Insert receipt line items
-    for (const auto& item : items) {
-        SQLite::Statement insertItem(db,
-            "INSERT INTO receipt_items (receipt_number, item_id, name, location, "
-            "quantity, unit_price, line_total) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        // Insert receipt line items
+        for (const auto& item : items) {
+            SQLite::Statement insertItem(db,
+                "INSERT INTO receipt_items (receipt_number, item_id, name, location, "
+                "quantity, unit_price, line_total) VALUES (?, ?, ?, ?, ?, ?, ?)");
 
-        insertItem.bind(1, receiptNumber);
-        insertItem.bind(2, item.id);
-        insertItem.bind(3, item.name);
-        insertItem.bind(4, item.location);
-        insertItem.bind(5, item.quantity);
-        insertItem.bind(6, item.unitPrice);
-        insertItem.bind(7, item.lineTotal());
-        insertItem.exec();
+            insertItem.bind(1, receiptNumber);
+            insertItem.bind(2, item.id);
+            insertItem.bind(3, item.name);
+            insertItem.bind(4, item.location);
+            insertItem.bind(5, item.quantity);
+            insertItem.bind(6, item.unitPrice);
+            insertItem.bind(7, item.lineTotal());
+            insertItem.exec();
+        }
+        transaction.commit();
+    } catch (const std::exception& e) {
+        std::cerr << "[RECEIPT STORAGE] Save failed: " << e.what() << std::endl;
+        throw; // Rethrow to inform the caller
     }
 }
 

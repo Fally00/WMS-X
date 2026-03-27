@@ -42,6 +42,10 @@ add_executable(wms_gui
     main.cpp
     main.h
     main.ui
+    Dialogs/ItemDialogs.cpp
+    Dialogs/CustomerDialog.cpp
+    Dialogs/ReceiptDialog.cpp
+    Dialogs/ReportDialog.cpp
     ${BACKEND_SOURCES}
 )
 

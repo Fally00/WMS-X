@@ -102,6 +102,19 @@ Item* Inventory::findByBarcode(const std::string& barcode) {
     return nullptr;
 }
 
+bool Inventory::isBarcodeTaken(const std::string& barcode, int excludeId) const {
+    if (barcode.empty()) return false;
+    try {
+        SQLite::Statement query(db, "SELECT 1 FROM items WHERE barcode = ? AND id != ? LIMIT 1");
+        query.bind(1, barcode);
+        query.bind(2, excludeId);
+        return query.executeStep();
+    } catch (const std::exception& e) {
+        std::cerr << "[INVENTORY ERROR] isBarcodeTaken: " << e.what() << std::endl;
+        return false;
+    }
+}
+
 std::vector<Item> Inventory::searchByName(const std::string &query) const {
     std::vector<Item> results;
     std::string lowerQuery = query;

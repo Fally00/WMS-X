@@ -28,17 +28,9 @@ public:
     ~Main() override;
 
 private slots:
-    void onAddItem();
-    void onUpdateItem();
-    void onDeleteItem();
     void onSearch();
     void onQueueTask();
     void onRunQueue();
-    void onGenerateReceipt();
-    void onReceiptHistory();
-    void onExportCSV();
-    void onManageCustomers();
-    void onOpenReports();
     void onSearchTextChanged(const QString& text);
 
 private:
@@ -52,9 +44,6 @@ private:
     void populateTable(const std::vector<Item>& items);
     QString formatTime(std::time_t t) const;
     QString itemStatus(int quantity) const;
-    void showReceiptPreview(const Receipt& receipt);
-    void exportReceiptsToCSV(const std::vector<Receipt>& receipts);
-    void openReceiptHistoryDialog(std::optional<int> preselectCustomerId = std::nullopt);
-};
+
 
 #endif // MAIN_H
