@@ -41,19 +41,14 @@ bool WmsControllers::initializeSystem() {
     return true;
 }
 
-void WmsControllers::saveAll() {
-    // With SQLite, each operation is persisted immediately.
-    // This method is kept for API compatibility but is now a no-op.
-    // All writes happen in addItem/removeItem/updateItem.
-}
+// ─────────────────────────────────────────────
+// The database automatically persists immediately; 
+// therefore saveAll() functionality is deprecated.
+// ─────────────────────────────────────────────
 
 bool WmsControllers::barcodeTakenByOther(int excludeItemId, const string& barcode) const {
     if (barcode.empty()) return false;
-    for (const auto& item : inventory.getAllItems()) {
-        if (item.getId() == excludeItemId) continue;
-        if (item.getBarcode() == barcode) return true;
-    }
-    return false;
+    return inventory.isBarcodeTaken(barcode, excludeItemId);
 }
 
 bool WmsControllers::addItem(int id, const string& name, int qty, const string& loc,
@@ -263,7 +258,6 @@ void WmsControllers::enqueueTask(const string& raw, TaskPriority prio) {
     t.created = chrono::system_clock::now();
 
     taskQueue.push(t);
-    cout << "[QUEUED] " << t.id << " :: " << raw << endl;
 }
 
 size_t WmsControllers::queueSize() const {

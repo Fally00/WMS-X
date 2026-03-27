@@ -76,7 +76,12 @@ WMS-X/
 │   └── utils/
 │       └── ...
 ├── wms_gui/                           # Qt6 GUI Application Files
-├── vendor/
+│   ├── main.cpp / main.h              # Application entry point & framework
+│   ├── Dialogs/                       # Modular Object-Oriented Dialogs
+│   │   ├── ItemDialogs.cpp / .h       # Item manipulation interfaces
+│   │   ├── CustomerDialog.cpp / .h    # CRM UI features
+│   │   ├── ReceiptDialog.cpp / .h     # Receipt generation and history UI
+│   │   └── ReportDialog.cpp / .h      # KPIs, sales charts, and reporting UI
 │   └── SQLiteCpp/                     # SQLite C++ wrapper (vendored)
 ├── assest/                            # Screenshots & logo
 ├── CMakeLists.txt                     # CLI build configuration
