@@ -139,7 +139,7 @@ void exportToCSV(QWidget* parent, WmsControllers& controller, const std::vector<
 
     QString filePath = QFileDialog::getSaveFileName(
         parent, "Export Receipt", defaultName,
-        "Text Files (*.txt);;All Files (*)");
+        "Text/Receipt Files (*.txt *.csv);;All Files (*)");
 
     if (filePath.isEmpty()) return;
 
@@ -708,20 +708,24 @@ bool showGenerateDialog(QWidget* parent, WmsControllers& controller, QTableWidge
                 "Add at least one item (select rows in the table or scan a barcode).");
             return;
         }
+        // Validate customer INSIDE the handler so the dialog stays open on error.
+        bool isManualNow = manualCheck->isChecked();
+        if (isManualNow && customerEdit->text().trimmed().isEmpty()) {
+            QMessageBox::warning(&dialog, "Missing Customer",
+                "Please enter a customer name in the Name field, or uncheck Manual Entry.");
+            return;
+        }
+        if (!isManualNow && selectedCustomerId < 0) {
+            QMessageBox::warning(&dialog, "No Customer Selected",
+                "Please search for and select a customer, or check \"Manual entry\".");
+            return;
+        }
         dialog.accept();
     });
 
     if (dialog.exec() != QDialog::Accepted) return false;
 
     bool isManual = manualCheck->isChecked();
-    if (isManual && customerEdit->text().trimmed().isEmpty()) {
-        QMessageBox::warning(parent, "Missing Customer", "Please enter a customer name.");
-        return false;
-    }
-    if (!isManual && selectedCustomerId < 0) {
-        QMessageBox::warning(parent, "No Customer Selected", "Please select a customer, or use manual entry.");
-        return false;
-    }
 
     Receipt receipt;
 
@@ -769,9 +773,16 @@ bool showGenerateDialog(QWidget* parent, WmsControllers& controller, QTableWidge
             upd.exec();
         }
 
+        QStringList failedStocks;
         for (int i = 0; i < itemList.size(); ++i) {
             int qty = qtySpins[i]->value();
-            controller.adjustStock(itemList[i].id, -qty); // Ignoring warning logic for simplicity
+            if (!controller.adjustStock(itemList[i].id, -qty)) {
+                failedStocks << QString("Item #%1 (%2)").arg(itemList[i].id).arg(itemList[i].name);
+            }
+        }
+        if (!failedStocks.isEmpty()) {
+            QMessageBox::warning(parent, "Stock Adjustment Warning",
+                QString("Receipt saved, but stock could not be deducted for:\n%1").arg(failedStocks.join("\n")));
         }
 
         transaction.commit();

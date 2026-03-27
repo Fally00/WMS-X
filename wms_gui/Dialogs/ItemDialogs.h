@@ -1,5 +1,8 @@
 #pragma once
 
+#include <QWidget>
+#include <QTableWidget>
+#include <SQLiteCpp/SQLiteCpp.h>
 #include "controllers/WmsControllers.h"
 #include <QTableWidget>
 #include <QWidget>
