@@ -61,7 +61,11 @@ public:
     void saveAll();
 
     bool addItem(int id, const std::string& name, int qty, const std::string& loc,
-                 const std::string& barcode = "");
+                 const std::string& barcode = "",
+                 double price = 0.0,
+                 const std::string& currency = "EGP",
+                 const std::string& unit = "pcs",
+                 const std::string& category = "general");
     bool removeItem(int id);
     bool updateItem(int id,
                     const std::optional<std::string>& name,

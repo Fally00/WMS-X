@@ -52,17 +52,14 @@ bool WmsControllers::barcodeTakenByOther(int excludeItemId, const string& barcod
 }
 
 bool WmsControllers::addItem(int id, const string& name, int qty, const string& loc,
-                             const string& barcode) {
+                             const string& barcode, double price,
+                             const string& currency, const string& unit,
+                             const string& category) {
     if (qty < 0) return false;
     if (inventory.findItem(id)) return false;
     if (barcodeTakenByOther(-1, barcode)) return false;
 
-    Item item(id, name, qty, loc);
-    try {
-        if (!barcode.empty()) item.setBarcode(barcode);
-    } catch (const std::exception&) {
-        return false;
-    }
+    Item item(id, name, qty, loc, price, currency, unit, category, barcode);
     return inventory.addItem(item);
 }
 

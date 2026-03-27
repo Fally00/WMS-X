@@ -2,6 +2,7 @@
 
 #include <QWidget>
 #include <QTableWidget>
+#include <SQLiteCpp/SQLiteCpp.h>
 #include "controllers/WmsControllers.h"
 
 namespace ItemDialogs {
