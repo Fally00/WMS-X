@@ -1,6 +1,7 @@
 #include "main.h"
 
 #include <QAbstractItemView>
+#include <QTableWidgetItem>
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
 #include <QTextDocument>
@@ -12,20 +13,19 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QMessageBox>
+#include <QPushButton>
 #include <QDateTime>
 #include <algorithm>
+#include <QLineEdit>
+#include <QVariant>
+#include <QSpinBox>
 #include <cstdlib>
 #include <QString>
+#include <QDialog>
 #include <QLabel>
-#include <QPushButton>
-#include <QLineEdit>
 #include <QIcon>
 #include <QSize>
 #include <QMenu>
-#include <QTableWidgetItem>
-#include <QSpinBox>
-#include <QVariant>
-#include <QDialog>
 
 #include "ui_main.h"
 
