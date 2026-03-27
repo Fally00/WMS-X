@@ -1,5 +1,4 @@
 #include "main.h"
-#include "ui_main.h"
 
 #include <QAbstractItemView>
 #include <QDialogButtonBox>
@@ -18,9 +17,17 @@
 #include <cstdlib>
 #include <QString>
 #include <QLabel>
-#include <QEvent>
-#include <QFile>
-#include <QFont>
+#include <QPushButton>
+#include <QLineEdit>
+#include <QIcon>
+#include <QSize>
+#include <QMenu>
+#include <QTableWidgetItem>
+#include <QSpinBox>
+#include <QVariant>
+#include <QDialog>
+
+#include "ui_main.h"
 
 // New Dialog headers
 #include "Dialogs/CustomerDialog.h"

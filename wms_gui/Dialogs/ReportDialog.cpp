@@ -16,6 +16,7 @@
 #include <QFormLayout>
 #include <QDialogButtonBox>
 #include <QTextStream>
+#include <QLineEdit>
 #include <QEvent>
 
 #include "reports/ReportEngine.h"

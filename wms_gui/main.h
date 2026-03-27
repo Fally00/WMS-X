@@ -44,6 +44,6 @@ private:
     void populateTable(const std::vector<Item>& items);
     QString formatTime(std::time_t t) const;
     QString itemStatus(int quantity) const;
-
+};
 
 #endif // MAIN_H
