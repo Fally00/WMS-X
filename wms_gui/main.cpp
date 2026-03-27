@@ -697,8 +697,15 @@ void Main::onGenerateReceipt()
     auto* scanRow = new QHBoxLayout();
     auto* scanEdit = new QLineEdit(&dialog);
     scanEdit->setPlaceholderText("Scan or enter barcode");
+    
+    auto* scanQtySpin = new QSpinBox(&dialog);
+    scanQtySpin->setRange(1, 9999);
+    scanQtySpin->setValue(1);
+    scanQtySpin->setPrefix("Qty: ");
+    
     auto* addScanBtn = new QPushButton("Add", &dialog);
     scanRow->addWidget(scanEdit, 1);
+    scanRow->addWidget(scanQtySpin);
     scanRow->addWidget(addScanBtn);
     auto* scanWarn = new QLabel(&dialog);
     scanWarn->setStyleSheet("QLabel { color: #c04040; }");
@@ -857,7 +864,7 @@ void Main::onGenerateReceipt()
     rebuildItemTable();
     scanEdit->setFocus();
 
-    connect(scanEdit, &QLineEdit::returnPressed, &dialog, [&]() {
+    auto processScan = [&]() {
         QString bc = normalizeScannedBarcode(scanEdit->text());
         scanEdit->clear();
         scanWarn->clear();
@@ -869,6 +876,14 @@ void Main::onGenerateReceipt()
         auto inv = wmsController.getItemByBarcode(bc.toStdString());
         // Fallback: if no barcode match and scanned text is numeric, treat it as item ID.
         if (!inv.has_value()) {
+            bool isNumeric;
+            int id = bc.toInt(&isNumeric);
+            if (isNumeric) {
+                inv = wmsController.getItem(id);
+            }
+        }
+
+        if (!inv.has_value()) {
             scanWarn->setText("Item not found");
             scanEdit->setFocus();
             return;
@@ -878,6 +893,8 @@ void Main::onGenerateReceipt()
             scanEdit->setFocus();
             return;
         }
+
+        int inputQty = scanQtySpin->value();
 
         int mergeIdx = -1;
         for (int j = 0; j < itemList.size(); ++j) {
@@ -894,8 +911,10 @@ void Main::onGenerateReceipt()
             itemTable->item(mergeIdx, 1)->setText(QString::number(itemList[mergeIdx].maxQty));
             QSpinBox* sp = qtySpins[mergeIdx];
             sp->setMaximum(std::max(1, itemList[mergeIdx].maxQty));
-            if (sp->value() < sp->maximum())
-                sp->setValue(sp->value() + 1);
+            
+            int newQty = sp->value() + inputQty;
+            if (newQty > sp->maximum()) newQty = sp->maximum();
+            sp->setValue(newQty);
         } else {
             SelectedItem si;
             si.id = inv->getId();
@@ -911,7 +930,7 @@ void Main::onGenerateReceipt()
             
             auto* qtySpin = new QSpinBox(&dialog);
             qtySpin->setRange(1, std::max(1, si.maxQty));
-            qtySpin->setValue(1);
+            qtySpin->setValue(std::min(inputQty, std::max(1, si.maxQty)));
             itemTable->setCellWidget(r, 2, qtySpin);
             qtySpins.append(qtySpin);
             
@@ -922,8 +941,13 @@ void Main::onGenerateReceipt()
             itemTable->setCellWidget(r, 3, priceSpin);
             priceSpins.append(priceSpin);
         }
+        
+        scanQtySpin->setValue(1);
         scanEdit->setFocus();
-    });
+    };
+
+    connect(scanEdit, &QLineEdit::returnPressed, &dialog, processScan);
+    connect(addScanBtn, &QPushButton::clicked, &dialog, processScan);
 
     mainLayout->addWidget(itemTable);
 
